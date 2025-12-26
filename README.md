@@ -1,12 +1,13 @@
-# AAV ROS2 Development
+# AAV Drone Software
 
 This was inspired by a Duke Robotics Repo linked [HERE](https://github.com/DukeRobotics/turtlesim-ros2-public) 
 
 ## Overview
-This repository serves as the bare bones setup for ROS2 Development.
+This repository serves as the main development environment for the AAV Drone
 
+## Develop in Docker
 
-## SETUP with GitHub Codespaces
+### SETUP with GitHub Codespaces
 1. Open this repository on GitHub.
 2. To create the codespace for the first time (skip to step 3 if you've already created the codespace):
     1. Click the green "Code" button.
@@ -27,11 +28,14 @@ This repository serves as the bare bones setup for ROS2 Development.
     3. Switch to the "Codespaces" tab.
     4. Click the three dots on the right side of the codespace and select "Stop codespace".
 
-## Desktop Viewer
-If you're using GitHub Codespaces, to view the turtlesim GUI or RQT_GRAPH, perform the following:
+### Desktop Viewer
+If you're using GitHub Codespaces, to view the RQT_GRAPH, perform the following:
 1. Press Ctrl/Cmd + Shift + P to open the command palette.
 2. Type ">Ports" and select "Ports: Focus on Ports View".
 3. In the "Ports" view, right-click on `6080` in the first column and select "Open in Browser" to open the desktop in a new tab. Alternatively, select "Preview in Editor" to view the desktop in the codespace.
 5. You may need to wait a few minutes for the desktop to load.
 6. Once you see the "noVNC" logo, click the "Connect" button to open the desktop.
-7. The turtlesim GUI or RQT_GRAPH will be visible in the desktop (if you've started the turtlesim node or RQT_GRAPH).
+7. The RQT_GRAPH will be visible in the desktop (if you've started the RQT_GRAPH).
+
+## Run Simulation
+[Follow Slideshow Tutorial](https://docs.google.com/presentation/d/1nkopkXmOMbf2FSYXp7-02WSqbt8vuJUTEI2T_HQRqNE/edit?usp=sharing)

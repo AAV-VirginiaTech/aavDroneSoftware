@@ -17,7 +17,7 @@ RUN echo "PermitRootLogin yes" >> /etc/ssh/sshd_config && \
 
 RUN echo "Port 2201" >> /etc/ssh/sshd_config
 
-RUN mkdir -p /root/dev/turtlesim
+RUN mkdir -p /root/dev/aav
 
 COPY ssh_entry.sh /root/.bash_profile
 COPY ros_bashrc.sh /root/ros_bashrc.sh

@@ -1,6 +1,27 @@
+# OS / Python junk
 .DS_Store
-__pycache__
+__pycache__/
 
-turtlesim_ws/build/*
-turtlesim_ws/install/*
-turtlesim_ws/log/*
+# ROS / colcon outputs
+AAVWORKSPACE/build/
+AAVWORKSPACE/install/
+AAVWORKSPACE/log/
+
+# Potential mistake of doing colcon build in src folder
+AAVWORKSPACE/src/build/
+AAVWORKSPACE/src/install/
+AAVWORKSPACE/src/log/
+
+# MAVLink logs
+*.tlog
+*.tlog.raw
+
+# EEPROM / params
+AAVWORKSPACE/eeprom.bin
+AAVWORKSPACE/mav.parm
+
+#Micro DDS
+AAVWORKSPACE/Micro-XRCE-DDS-Gen/
+
+#Terrain
+AAVWORKSPACE/terrain/
