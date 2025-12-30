@@ -14,7 +14,7 @@ setup(
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='carter',
-    maintainer_email='carterhawkins93@gmail.com',
+    maintainer_email='carterhawkins@vt.edu',
     description='Software for AAV Drone',
     license='GPL-3.0',
     extras_require={
