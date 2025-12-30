@@ -51,6 +51,7 @@ def generate_launch_description():
     pkg_project_bringup = get_package_share_directory("ardupilot_gz_bringup")
     pkg_project_gazebo = get_package_share_directory("ardupilot_gz_gazebo")
     pkg_ros_gz_sim = get_package_share_directory("ros_gz_sim")
+    aav_bringup = get_package_share_directory("aav_bringup")
 
     # Iris.
     iris = IncludeLaunchDescription(
@@ -75,7 +76,7 @@ def generate_launch_description():
         ),
         launch_arguments={
             "gz_args": "-v4 -s -r "
-            f'{Path(pkg_project_gazebo) / "worlds" / "iris_runway.sdf"}'
+            f'{Path(aav_bringup) / "launch" / "aav_worlds" / "aav_runway.sdf"}'
         }.items(),
     )
 
