@@ -1,0 +1,33 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/carter/aavDroneSoftware/aav_ws/install/sdformat_urdf/include/**",
+        "/home/carter/aavDroneSoftware/aav_ws/install/ros_ign_interfaces/include/**",
+        "/home/carter/aavDroneSoftware/aav_ws/install/ros_gz_sim/include/**",
+        "/home/carter/aavDroneSoftware/aav_ws/install/ros_gz_bridge/include/**",
+        "/home/carter/aavDroneSoftware/aav_ws/install/ros_gz_interfaces/include/**",
+        "/home/carter/aavDroneSoftware/aav_ws/install/micro_ros_agent/include/**",
+        "/home/carter/aavDroneSoftware/aav_ws/install/ardupilot_msgs/include/**",
+        "/opt/ros/humble/include/**",
+        "/home/carter/aavDroneSoftware/aav_ws/src/ardupilot_gazebo/include/**",
+        "/home/carter/aavDroneSoftware/aav_ws/src/ardupilot_gz/ardupilot_gz_gazebo/include/**",
+        "/home/carter/aavDroneSoftware/aav_ws/src/micro_ros_agent/micro_ros_agent/include/**",
+        "/home/carter/aavDroneSoftware/aav_ws/src/ros_gz/ros_gz_bridge/include/**",
+        "/home/carter/aavDroneSoftware/aav_ws/src/ros_gz/ros_gz_sim/include/**",
+        "/home/carter/aavDroneSoftware/aav_ws/src/sdformat_urdf/sdformat_urdf/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+}

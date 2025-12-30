@@ -1,0 +1,22 @@
+{
+    "python.autoComplete.extraPaths": [
+        "/home/carter/aavDroneSoftware/aav_ws/install/ros_ign_interfaces/local/lib/python3.10/dist-packages",
+        "/home/carter/aavDroneSoftware/aav_ws/install/ros_gz_interfaces/local/lib/python3.10/dist-packages",
+        "/home/carter/aavDroneSoftware/aav_ws/install/ardupilot_dds_tests/lib/python3.10/site-packages",
+        "/home/carter/aavDroneSoftware/aav_ws/install/ardupilot_sitl/local/lib/python3.10/dist-packages",
+        "/home/carter/aavDroneSoftware/aav_ws/install/ardupilot_msgs/local/lib/python3.10/dist-packages",
+        "/home/carter/aavDroneSoftware/aav_ws/install/aav_software/lib/python3.10/site-packages",
+        "/opt/ros/humble/lib/python3.10/site-packages",
+        "/opt/ros/humble/local/lib/python3.10/dist-packages"
+    ],
+    "python.analysis.extraPaths": [
+        "/home/carter/aavDroneSoftware/aav_ws/install/ros_ign_interfaces/local/lib/python3.10/dist-packages",
+        "/home/carter/aavDroneSoftware/aav_ws/install/ros_gz_interfaces/local/lib/python3.10/dist-packages",
+        "/home/carter/aavDroneSoftware/aav_ws/install/ardupilot_dds_tests/lib/python3.10/site-packages",
+        "/home/carter/aavDroneSoftware/aav_ws/install/ardupilot_sitl/local/lib/python3.10/dist-packages",
+        "/home/carter/aavDroneSoftware/aav_ws/install/ardupilot_msgs/local/lib/python3.10/dist-packages",
+        "/home/carter/aavDroneSoftware/aav_ws/install/aav_software/lib/python3.10/site-packages",
+        "/opt/ros/humble/lib/python3.10/site-packages",
+        "/opt/ros/humble/local/lib/python3.10/dist-packages"
+    ]
+}
