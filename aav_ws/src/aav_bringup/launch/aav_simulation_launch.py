@@ -109,7 +109,7 @@ def generate_launch_description():
             ]
         ),
         launch_arguments={
-            "model": "/home/carter/aavDroneSoftware/aav_ws/src/aav_bringup/aav_yolo_models/basic.pt",
+            "model": f'{Path(aav_bringup) / "aav_yolo_models" / "basic.pt"}',
             "input_image_topic": "/camera/image",
         }.items(),
     )
