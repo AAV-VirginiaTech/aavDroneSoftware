@@ -6,5 +6,6 @@ export PYTHONWARNINGS="ignore:easy_install command is deprecated"
 # To be appended to /root/.bashrc
 source /opt/ros/humble/setup.bash
 source /usr/share/colcon_cd/function/colcon_cd.sh
+source ~/aav_ws/install/setup.bash
 
 export _colcon_cd_root=/opt/ros/humble
