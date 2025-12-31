@@ -4,4 +4,4 @@
 source /root/ros_bashrc.sh
 
 # We know this directory exists
-cd /root/dev/AAVWORKSPACE
+cd /root/dev/aav_ws
