@@ -38,4 +38,4 @@ aav_ws/src/micro_ros_agent/
 aav_ws/src/ros_gz/
 
 # Yolo detection
-aav_ws/src/yolo_ros_aav/
+aav_ws/src/yolo_ros/
