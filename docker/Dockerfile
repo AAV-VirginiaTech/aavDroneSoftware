@@ -5,7 +5,12 @@ RUN apt update && apt install -y --no-install-recommends \
     xauth \
     snapd \
     python3-colcon-common-extensions \
-    python3-pip
+    python3-pip \
+    python3-vcstool \
+    git \
+    curl \
+    ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
 
 RUN echo root:robotics | chpasswd
 
@@ -17,17 +22,8 @@ RUN echo "PermitRootLogin yes" >> /etc/ssh/sshd_config && \
 
 RUN echo "Port 2201" >> /etc/ssh/sshd_config
 
-# Create ROS 2 workspace structure
-RUN mkdir -p /workspaces/aavDroneSoftware/aav_ws/src
-
-# Clone ArduPilot directly into the workspace
-RUN git clone --recurse-submodules \
-    https://github.com/ArduPilot/ardupilot.git \
-    /workspaces/aavDroneSoftware/aav_ws/src/ardupilot
-
 COPY ssh_entry.sh /root/.bash_profile
 COPY ros_bashrc.sh /root/ros_bashrc.sh
 RUN echo "source /root/ros_bashrc.sh" >> /root/.bashrc
 
 ENTRYPOINT service ssh restart && bash
-

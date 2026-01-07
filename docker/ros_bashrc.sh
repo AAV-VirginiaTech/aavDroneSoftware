@@ -3,9 +3,12 @@
 
 export PYTHONWARNINGS="ignore:easy_install command is deprecated"
 
-# To be appended to /root/.bashrc
+# Base ROS
 source /opt/ros/humble/setup.bash
 source /usr/share/colcon_cd/function/colcon_cd.sh
-source /workspaces/aavDroneSoftware/aav_ws/install/setup.bash
-
 export _colcon_cd_root=/opt/ros/humble
+
+# Workspace overlay (only if built)
+if [ -f /workspaces/aavDroneSoftware/aav_ws/install/setup.bash ]; then
+  source /workspaces/aavDroneSoftware/aav_ws/install/setup.bash
+fi

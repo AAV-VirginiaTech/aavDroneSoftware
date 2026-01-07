@@ -1,17 +1,14 @@
 {
-    "name": "AAV ROS2",
-    "dockerComposeFile": "../docker-compose.yml",
-    "service": "aav-ros2",
-    "features": {
-        "ghcr.io/devcontainers/features/desktop-lite:1": {}
-    },
-    "forwardPorts": [2201, 6080],
-    "portsAttributes": {
-        "2201": {
-            "label": "SSH"
-        },
-        "6080": {
-            "label": "desktop"
-        }
-    }
+  "name": "AAV ROS2",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "aav-ros2",
+  "features": {
+    "ghcr.io/devcontainers/features/desktop-lite:1": {}
+  },
+  "forwardPorts": [2201, 6080],
+  "portsAttributes": {
+    "2201": { "label": "SSH" },
+    "6080": { "label": "desktop" }
+  },
+  "postCreateCommand": "bash .devcontainer/postCreate.sh"
 }

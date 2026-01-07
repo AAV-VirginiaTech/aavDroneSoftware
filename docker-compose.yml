@@ -5,8 +5,6 @@ services:
       dockerfile: Dockerfile
     container_name: aav-ros2
     tty: true
-    volumes:
-      - ./:/root/dev/aav
     ports:
       - 2201:2201
       - 6080:6080
