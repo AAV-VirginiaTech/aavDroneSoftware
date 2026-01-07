@@ -17,9 +17,13 @@ RUN echo "PermitRootLogin yes" >> /etc/ssh/sshd_config && \
 
 RUN echo "Port 2201" >> /etc/ssh/sshd_config
 
-RUN mkdir -p /root/dev/aav
+# Create ROS 2 workspace structure
+RUN mkdir -p /workspaces/aavDroneSoftware/aav_ws/src
 
-RUN git clone --recurse-submodules https://github.com/ArduPilot/ardupilot.git /root/dev/aav/ardupilot
+# Clone ArduPilot directly into the workspace
+RUN git clone --recurse-submodules \
+    https://github.com/ArduPilot/ardupilot.git \
+    /workspaces/aavDroneSoftware/aav_ws/src/ardupilot
 
 COPY ssh_entry.sh /root/.bash_profile
 COPY ros_bashrc.sh /root/ros_bashrc.sh
