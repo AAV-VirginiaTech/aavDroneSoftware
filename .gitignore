@@ -39,3 +39,6 @@ aav_ws/src/ros_gz/
 
 # Yolo detection
 aav_ws/src/yolo_ros/
+
+
+aav_ws/src/ardupilot_msgs/

@@ -16,6 +16,14 @@ class TestNode(Node):
         self.get_logger().info("Test Node has been launched")
         self.create_timer(1.0, self.timer_callback)
         
+        
+
+
+    def timer_callback(self):
+        self.get_logger().info("Test Node Count " + str(self.counter))
+        self.counter += 1
+        
+        
         msg = GlobalPosition()
 
         # Match the CLI command exactly
@@ -24,12 +32,7 @@ class TestNode(Node):
         msg.latitude = -35.365822
         msg.longitude = 149.163124
 
-        self.pub.publish(msg)
-
-
-    def timer_callback(self):
-        self.get_logger().info("Test Node Count " + str(self.counter))
-        self.counter += 1
+        self.publisher.publish(msg)
 
 
 def main(args=None):
