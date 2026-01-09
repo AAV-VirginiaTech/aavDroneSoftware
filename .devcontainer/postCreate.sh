@@ -1,31 +1,29 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -e
 
-WS="/workspaces/aavDroneSoftware/aav_ws"
-SRC="$WS/src"
-MARKER="$WS/.ros2_repos_imported"
+echo "=== AAV postCreate.sh starting ==="
 
-mkdir -p "$SRC"
+# ---- CONFIG ----
+ROS_DISTRO=humble
+WS=/workspaces/aavDroneSoftware/aav_ws
+SRC=${WS}/src
+PKG=${SRC}/ardupilot_msgs
 
-# Skip if already imported
-if [[ -f "$MARKER" ]]; then
-  echo "[postCreate] ros2.repos already imported."
-  exit 0
+# ---- ROS ENV ----
+source /opt/ros/${ROS_DISTRO}/setup.bash
+
+# ---- ENSURE WORKSPACE EXISTS ----
+mkdir -p "${SRC}"
+
+# ---- FETCH ardupilot_msgs ONLY (no full clone) ----
+if [ ! -d "${PKG}" ]; then
+    echo "Cloning ardupilot_msgs (only)..."
+    apt-get update && apt-get install -y subversion
+    svn export \
+      https://github.com/ArduPilot/ardupilot/trunk/Tools/ros2/ardupilot_msgs \
+      "${PKG}"
+else
+    echo "ardupilot_msgs already present, skipping clone"
 fi
 
-# If src already has content, don't overwrite
-if [[ -n "$(ls -A "$SRC" 2>/dev/null || true)" ]]; then
-  echo "[postCreate] $SRC is not empty; skipping vcs import."
-  touch "$MARKER"
-  exit 0
-fi
-
-echo "[postCreate] Importing ArduPilot ROS2 repos into $SRC ..."
-cd "$WS"
-
-vcs import --recursive \
-  --input "https://raw.githubusercontent.com/ArduPilot/ardupilot/master/Tools/ros2/ros2.repos" \
-  "$SRC"
-
-touch "$MARKER"
-echo "[postCreate] Done."
+echo "=== AAV postCreate.sh complete ==="
