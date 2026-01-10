@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <model name="target_marker">
+    <static>true</static>
+
+    <!-- default pose if you insert from GUI -->
+    <pose>0 0 0 0 0 0</pose>
+
+    <link name="link">
+
+      <visual name="target_visual">
+  <geometry>
+    <plane>
+      <normal>0 0 1</normal>
+      <size>5 5</size>
+    </plane>
+  </geometry>
+
+  <material>
+    <double_sided>true</double_sided>
+
+    <ambient>1 1 1 1</ambient>
+    <diffuse>1 1 1 1</diffuse>
+
+    <pbr>
+      <metal>
+        <albedo_map>model://target_marker/materials/textures/target.png</albedo_map>
+        <roughness>1.0</roughness>
+        <metalness>0.0</metalness>
+      </metal>
+    </pbr>
+  </material>
+
+  <cast_shadows>false</cast_shadows>
+</visual>
+
+    </link>
+  </model>
+</sdf>
