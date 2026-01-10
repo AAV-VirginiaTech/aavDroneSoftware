@@ -8,6 +8,9 @@ from aav_interfaces.msg import Mode
 
 
 
+# This node just serves as an example to show how to write ros2 python code.
+# This is not actually used in the actual production code.
+
 
 class TestNode(Node):
 
