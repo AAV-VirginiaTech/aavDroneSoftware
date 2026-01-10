@@ -29,6 +29,7 @@ if [ ! -d "${PKG}" ]; then
 
   mkdir -p "${SRC}"
   cp -a Tools/ros2/ardupilot_msgs "${PKG}"
+  cd "$WS"  # return before removing the temp dir
   rm -rf "$tmp"
 else
   echo "ardupilot_msgs already present, skipping fetch"
@@ -47,6 +48,7 @@ if [ ! -d "${YOLO_PKG}" ]; then
 
   mkdir -p "${SRC}"
   cp -a yolo_msgs "${YOLO_PKG}"
+  cd "$WS"  # return before removing the temp dir
   rm -rf "$tmp"
 else
   echo "yolo_msgs already present, skipping fetch"
