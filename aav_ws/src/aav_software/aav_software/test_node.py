@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
+
+# Import message interfaces
 from ardupilot_msgs.msg import GlobalPosition
 from aav_interfaces.msg import Mode
 
