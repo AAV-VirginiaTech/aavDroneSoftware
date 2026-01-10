@@ -8,7 +8,7 @@
   <license>GPL-3.0</license>
 
   <depend>rclpy</depend>
-  <depend>aav_interfaces</depend>
+  <depend>aav_msgs</depend>
   <depend>ardupilot_msgs</depend>
   <depend>yolo_msgs</depend>
 

@@ -4,7 +4,7 @@ from rclpy.node import Node
 
 # Import message interfaces
 from ardupilot_msgs.msg import GlobalPosition
-from aav_interfaces.msg import Mode
+from aav_msgs.msg import Mode
 
 
 

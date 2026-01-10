@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>aav_interfaces</name>
+  <name>aav_msgs</name>
   <version>0.0.0</version>
-  <description>Custom interfaces for AAV</description>
+  <description>Custom msgs for AAV</description>
   <maintainer email="carterhawkins@vt.edu">Carter</maintainer>
   <license>GPL-3.0</license>
 
