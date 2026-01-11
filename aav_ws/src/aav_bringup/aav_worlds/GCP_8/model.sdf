@@ -24,7 +24,7 @@
 
     <pbr>
       <metal>
-        <albedo_map>model://GCP_8/materials/textures/GCP.png</albedo_map>
+        <albedo_map>model://GCP_8/materials/textures/GCP8.png</albedo_map>
         <roughness>1.0</roughness>
         <metalness>0.0</metalness>
       </metal>
