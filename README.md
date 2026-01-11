@@ -43,9 +43,13 @@ If you're using GitHub Codespaces, to view the RQT_GRAPH, perform the following:
 ## Launch Files (Run the software!)
 ### aav_simulation_launch
 Used to run the full software setup with Gazebo, yolo, and AAV Software Nodes. Run this on a computer with Ubuntu Linux and an NVIDIA Graphics card.
+#### Command:
+ros2 launch aav_bringup aav_simulation_launch
 
 ### aav_drone_launch
 Used to run the software needed on the actual drone. Runs yolo and AAV Software Nodes. Run this on the Jetson located on the drone itself.
+#### Command:
+ros2 launch aav_bringup aav_drone_launch
 
 ## Setup and Run Simulation
 [Follow Slideshow Tutorial](https://docs.google.com/presentation/d/1nkopkXmOMbf2FSYXp7-02WSqbt8vuJUTEI2T_HQRqNE/edit?usp=sharing)
