@@ -44,7 +44,7 @@
       <pose>0.0074233424050361438 0.059891083479345172 0.19499940128874949 -1.8841896426196247e-06 -4.8337598066126306e-07 1.6134454097083128</pose>
     </include>
     <include>
-      <<uri>model://target_marker</uri>
+      <uri>model://target_marker</uri>
       <name>target_marker_0</name>
       <pose>61.356536537976538 -7.1181951619470372 0 0 0 0</pose>
     </include>
