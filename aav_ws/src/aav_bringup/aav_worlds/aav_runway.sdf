@@ -34,72 +34,72 @@
     <magnetic_field>5.5644999999999998e-06 2.2875799999999999e-05 -4.2388400000000002e-05</magnetic_field>
     <atmosphere type='adiabatic'/>
     <include>
-      <uri>file:///home/carter/aavDroneSoftware/aav_ws/install/ardupilot_gazebo/share/ardupilot_gazebo/models/runway</uri>
+      <uri>model://runway</uri>
       <name>runway</name>
       <pose>-29 545 0 0 0 0.05235987755982998</pose>
     </include>
     <include>
-      <uri>file:///home/carter/aavDroneSoftware/aav_ws/install/ardupilot_gazebo/share/ardupilot_gazebo/models/iris_with_gimbal</uri>
+      <uri>model://iris_with_gimbal</uri>
       <name>iris</name>
       <pose>0.0074233424050361438 0.059891083479345172 0.19499940128874949 -1.8841896426196247e-06 -4.8337598066126306e-07 1.6134454097083128</pose>
     </include>
     <include>
-      <uri>file:///home/carter/aavDroneSoftware/aav_ws/src/aav_bringup/aav_worlds/target_marker</uri>
+      <<uri>model://target_marker</uri>
       <name>target_marker_0</name>
       <pose>61.356536537976538 -7.1181951619470372 0 0 0 0</pose>
     </include>
     <include>
-      <uri>file:///home/carter/aavDroneSoftware/aav_ws/src/aav_bringup/aav_worlds/GCP_Blank</uri>
+      <uri>model://GCP_Blank</uri>
       <name>GCP_Blank</name>
       <pose>74.851156492500721 28.681105382308701 0 0 0 0</pose>
     </include>
     <include>
-      <uri>file:///home/carter/aavDroneSoftware/aav_ws/src/aav_bringup/aav_worlds/GCP_0</uri>
+      <uri>model://GCP_0</uri>
       <name>GCP_0</name>
       <pose>-56.292955643165968 -38.700578176209213 0 0 0 0</pose>
     </include>
     <include>
-      <uri>file:///home/carter/aavDroneSoftware/aav_ws/src/aav_bringup/aav_worlds/GCP_1</uri>
+      <uri>model://GCP_1</uri>
       <name>GCP_1</name>
       <pose>-57.998166730861399 -2.1382600372673153 0 0 0 0</pose>
     </include>
     <include>
-      <uri>file:///home/carter/aavDroneSoftware/aav_ws/src/aav_bringup/aav_worlds/GCP_2</uri>
+      <uri>model://GCP_2</uri>
       <name>GCP_2</name>
       <pose>-84.044393298500964 -40.003326207974759 0 0 0 0</pose>
     </include>
     <include>
-      <uri>file:///home/carter/aavDroneSoftware/aav_ws/src/aav_bringup/aav_worlds/GCP_3</uri>
+      <uri>model://GCP_3</uri>
       <name>GCP_3</name>
       <pose>-86.622867619370481 -4.5268080291212698 0 0 0 0</pose>
     </include>
     <include>
-      <uri>file:///home/carter/aavDroneSoftware/aav_ws/src/aav_bringup/aav_worlds/GCP_4</uri>
+      <uri>model://GCP_4</uri>
       <name>GCP_4</name>
       <pose>-105.65649518970994 -41.539220217677865 0 0 0 0</pose>
     </include>
     <include>
-      <uri>file:///home/carter/aavDroneSoftware/aav_ws/src/aav_bringup/aav_worlds/GCP_5</uri>
+      <uri>model://GCP_5</uri>
       <name>GCP_5</name>
       <pose>-108.81478448496834 -7.2487212712861631 0 0 0 0</pose>
     </include>
     <include>
-      <uri>file:///home/carter/aavDroneSoftware/aav_ws/src/aav_bringup/aav_worlds/GCP_6</uri>
+      <uri>model://GCP_6</uri>
       <name>GCP_6</name>
       <pose>-127.13371550113604 -42.273413424503431 0 0 0 0</pose>
     </include>
     <include>
-      <uri>file:///home/carter/aavDroneSoftware/aav_ws/src/aav_bringup/aav_worlds/GCP_7</uri>
+      <uri>model://GCP_7</uri>
       <name>GCP_7</name>
       <pose>-130.39823620683799 -8.6915103798414659 0 0 0 0</pose>
     </include>
     <include>
-      <uri>file:///home/carter/aavDroneSoftware/aav_ws/src/aav_bringup/aav_worlds/GCP_8</uri>
+      <uri>model://GCP_8</uri>
       <name>GCP_8</name>
       <pose>-156.76849158994929 -44.034735418981604 0 0 0 0</pose>
     </include>
     <include>
-      <uri>file:///home/carter/aavDroneSoftware/aav_ws/src/aav_bringup/aav_worlds/GCP_9</uri>
+      <uri>model://GCP_9</uri>
       <name>GCP_9</name>
       <pose>-156.82954283796511 -8.9728950062150137 0 0 0 0</pose>
     </include>
