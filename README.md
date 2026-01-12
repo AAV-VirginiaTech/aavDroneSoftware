@@ -56,12 +56,13 @@ ros2 launch aav_bringup aav_drone_launch
 
 ### Pull new code and rebuild
 Type these commands
-'''
+
+```
 cd aavDroneSoftware/
 git pull
 cd aav_ws/
 colcon build
-'''
+```
 
 ## Setup Drone
 [Follow Slideshow Tutorial](https://docs.google.com/presentation/d/1RjGnmdPsTrMh_nokPCGsJA6VWc1nO-TS1V9CDui4KNo/edit?usp=sharing)
