@@ -7,10 +7,13 @@ aav_ws/build/
 aav_ws/install/
 aav_ws/log/
 
-# Potential mistake of doing colcon build in src folder
+# Potential mistake of doing colcon build in wrong folder
 aav_ws/src/build/
 aav_ws/src/install/
 aav_ws/src/log/
+build/
+install/
+log/
 
 # MAVLink logs
 *.tlog
