@@ -12,6 +12,8 @@ RUN apt update && apt install -y --no-install-recommends \
     ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
+RUN pip install pyproj
+
 RUN echo root:robotics | chpasswd
 
 RUN echo "PermitRootLogin yes" >> /etc/ssh/sshd_config && \
