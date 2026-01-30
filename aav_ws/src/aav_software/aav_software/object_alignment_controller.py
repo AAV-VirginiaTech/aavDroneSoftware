@@ -30,22 +30,22 @@ class ObjectAlignmentController(Node):
         self.posSub = self.create_subscription(TargetPosition, "/AAV/estimated_target_position", self.callback_pos, 10)
         self.posPub = self.create_publisher(LatLong, "/AAV/send_new_position", 10)
 
-        self.current_mode = ModeEnum.NOT_GUIDED
-        self.last_object_label = "none"
+        self.currentMode = ModeEnum.NOT_GUIDED
+        self.lastObjectLabel = "none"
 
         self.get_logger().info("Object Alignment Controller has been launched")
 
     def callback_mode(self, current_mode: Mode):
         self.get_logger().info(f"Recieved new mode: {current_mode}")
-        self.current_mode = ModeEnum.from_int(current_mode.mode)
+        self.currentMode = ModeEnum.from_int(current_mode.mode)
 
     def callback_pos(self, target_position: TargetPosition):
         self.get_logger().info(f"Recieved new target position: {target_position}")
-        if (self.current_mode != ModeEnum.GUIDED):
+        if (self.curreneMode != ModeEnum.GUIDED):
             return
 
         self.get_logger().info(f"Sending new positition")
-        self.last_object_label = target_position.object_label
+        self.lastObjectLabel = target_position.object_label
 
         new_position = LatLong()
         new_position.latitude = target_position.latitude
