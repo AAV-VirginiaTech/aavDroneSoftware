@@ -41,7 +41,7 @@ class ObjectAlignmentController(Node):
 
     def callback_pos(self, target_position: TargetPosition):
         self.get_logger().info(f"Recieved new target position: {target_position}")
-        if (self.curreneMode != ModeEnum.GUIDED):
+        if (self.currentMode != ModeEnum.GUIDED):
             return
 
         self.get_logger().info(f"Sending new positition")
