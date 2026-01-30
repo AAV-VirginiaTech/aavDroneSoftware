@@ -5,6 +5,14 @@ from ardupilot_msgs.msg import Status
 from ardupilot_msgs.msg import GlobalPosition 
 
 
+
+#FOR NEXT MEETING!!!!
+# TODO: Just need one class variable (altitude). Need to save altitude as variable in the class. Will need to use this to publish new gps cord to ardupilot.
+# Everything else can just be passed in via a parameter to the function. We got everything nicely contained in one topic from ardupilot.
+# TODO: Create enum within this file. Look at Charlie's object_alignment_controller code. Or just ask him about it.
+# TODO: Finish rest of the functionality in this file. Look in test_node on how to publish new gps location to arudpilot. Need altitude in order for drone to not crash :)
+
+
 class TopicConverter(Node):
     def __init__(self):
         super().__init__("topic_converter")
