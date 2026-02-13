@@ -4,13 +4,19 @@ from rclpy.node import Node
 from aav_msgs.msg import Mode
 from aav_msgs.msg import TargetPosition
 from aav_msgs.msg import LatLong
-from topic_converter import GuidedMode
+from .topic_converter import ArduPilotMode
 
 # TODO Need to send command to land drone
 # TODO Need to automatically drop payload (call electrical python code)
 
 
 """
+# Launch Object Alignment Controller
+ros2 run aav_software object_alignment_controller
+
+#View output topic
+ros2 topic echo /AAV/send_new_position
+
 # Send new mode
 
 ros2 topic pub --once /AAV/current_mode aav_msgs/msg/Mode "{mode: 4}"
@@ -34,18 +40,18 @@ class ObjectAlignmentController(Node):
         self.posSub = self.create_subscription(TargetPosition, "/AAV/estimated_target_position", self.callback_pos, 10)
         self.posPub = self.create_publisher(LatLong, "/AAV/send_new_position", 10)
 
-        self.currentMode = GuidedMode.AUTO
+        self.currentMode = ArduPilotMode.AUTO
         self.lastObjectLabel = "none"
 
         self.get_logger().info("Object Alignment Controller has been launched")
 
     def callback_mode(self, current_mode: Mode):
         self.get_logger().info(f"Recieved new mode: {current_mode}")
-        self.currentMode = GuidedMode(current_mode.mode)
+        self.currentMode = ArduPilotMode(current_mode.mode)
 
     def callback_pos(self, target_position: TargetPosition):
         self.get_logger().info(f"Recieved new target position: {target_position}")
-        if (self.currentMode != GuidedMode.GUIDED):
+        if (self.currentMode != ArduPilotMode.GUIDED):
             self.get_logger().info("Not guided. Doing nothing.")
             return
 
