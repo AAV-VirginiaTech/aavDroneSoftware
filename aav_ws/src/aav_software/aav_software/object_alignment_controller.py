@@ -40,8 +40,11 @@ class ObjectAlignmentController(Node):
         self.posSub = self.create_subscription(TargetPosition, "/AAV/estimated_target_position", self.callback_pos, 10)
         self.posPub = self.create_publisher(LatLong, "/AAV/send_new_position", 10)
 
+        self.proximityCheckTimer = self.create_timer(2.0, self.check_proximity)
+
         self.currentMode = ArduPilotMode.AUTO
         self.lastObjectLabel = "none"
+        self.lastPosition = None
 
         self.get_logger().info("Object Alignment Controller has been launched")
 
@@ -62,6 +65,12 @@ class ObjectAlignmentController(Node):
         new_position.latitude = target_position.latitude
         new_position.longitude = target_position.longitude
         self.posPub.publish(new_position)
+        self.lastPosition = new_position
+
+    def check_proximity(self):
+        if (self.lastPosition):
+            self.get_logger().debug("TODO: get current craft position and land if close to target")
+
 
 def main(args=None):
     rclpy.init(args=args)
