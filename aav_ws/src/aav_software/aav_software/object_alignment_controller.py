@@ -15,7 +15,7 @@ class ObjectAlignmentController(Node):
         self.posSub = self.create_subscription(TargetPosition, "/AAV/estimated_target_position", self.callback_pos, 10)
         self.posPub = self.create_publisher(LatLong, "/AAV/send_new_position", 10)
 
-        self.currentMode = GuidedMode.NOT_GUIDED
+        self.currentMode = GuidedMode.AUTO
         self.lastObjectLabel = "none"
 
         self.get_logger().info("Object Alignment Controller has been launched")
