@@ -8,10 +8,11 @@ from aav_msgs.msg import DronePosition
 from aav_msgs.msg import LatLong
 from enum import Enum, IntEnum
 
-#FOR NEXT MEETING!!!!
-# TODO: Can "Hardcode" the alititude to send to ardupilot. Need to do this based on min altitude
+# TODO: Can "Hardcode" the alititude to send to ardupilot. Need to do add desired altitude to min altitude
 # TODO: Finish rest of the functionality in this file. Look in test_node on how to publish new gps location to arudpilot. Need altitude in order for drone to not crash :)
 # TODO: remove (or update) this class once topic_converter assigns mode values
+
+# TODO: The altitude you publish to /AAV/current_gps_position topic should be the altitude relative to the ground. Will need to do math for this.
 
 
 #Testing commands:
