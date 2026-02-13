@@ -13,6 +13,9 @@ from .topic_converter import ArduPilotMode
 
 # TODO Need to automatically drop payload (call electrical python code)
 
+# TODO Need to automatically take off again after dropping payload (only for payload delivery mission)
+# Can create a new custom mode within ArduPilotMode ENUM for taking off. Topic Converter will deal with the actual logic for taking off.
+
 
 # Testing commands:
 """
