@@ -6,7 +6,7 @@ from aav_msgs.msg import Mode
 from ardupilot_msgs.msg import GlobalPosition 
 from aav_msgs.msg import DronePosition
 from aav_msgs.msg import LatLong
-from enum import Enum
+from enum import Enum, IntEnum
 
 #FOR NEXT MEETING!!!!
 # TODO: Can "Hardcode" the alititude to send to ardupilot
@@ -14,21 +14,12 @@ from enum import Enum
 # TODO: Finish rest of the functionality in this file. Look in test_node on how to publish new gps location to arudpilot. Need altitude in order for drone to not crash :)
 # todo: remove (or update) this class once topic_converter assigns mode values
 
-#TODO: 
-
-class ModeEnum(Enum):
-    """Dummy enum that represents Ardupilot mode. Should be replaced by similar enum in topic_converter.py"""
+class GuidedMode(IntEnum):
     NOT_GUIDED = 0
     GUIDED = 1
 
-    def from_int(num: int):
-        match num:
-            case 0:
-                return NOT_GUIDED
-            case 1:
-                return GUIDED
-            case _:
-                raise ValueError("ModeEnum requires a value between 0 and 1")
+    ARDUPILOT_GUIDED = 4
+    ARDUPILOT_AUTO = 3
 
 
 class TopicConverter(Node):
@@ -55,6 +46,15 @@ class TopicConverter(Node):
 
     
     def status_callback(self, msg: Status):
+        ap_mode = msg.mode
+
+        if ap_mode == GuidedMode.ARDUPILOT_GUIDED:
+            self.current_mode = GuidedMode.GUIDED
+        else:
+            self.current_mode = GuidedMode.NOT_GUIDED
+
+
+        self.get_logger().info("ArduPilot is in GUIDED mode.")
         self.current_mode = msg.mode
         mode_msg = Mode()
         mode_msg.mode = msg.mode
