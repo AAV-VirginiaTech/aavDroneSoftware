@@ -6,7 +6,9 @@ from aav_msgs.msg import TargetPosition
 from aav_msgs.msg import LatLong
 from .topic_converter import ArduPilotMode
 
-# TODO Need to send command to land drone. Just need to change ardupilot mode to LAND
+# TODO Need to send command to land drone. Just need to change ardupilot mode to LAND. 
+# ros2 service call /ap/mode_switch ardupilot_msgs/srv/ModeSwitch "{mode: 9}"
+
 # TODO Need to automatically drop payload (call electrical python code)
 
 
@@ -28,6 +30,10 @@ object_label: 'target_1',
 latitude: 37.2296,
 longitude: -80.4139
   }"
+
+
+# Test landing drone
+ros2 service call /ap/mode_switch ardupilot_msgs/srv/ModeSwitch "{mode: 9}"
 
 """
 
