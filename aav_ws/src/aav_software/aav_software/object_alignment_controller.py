@@ -6,6 +6,8 @@ from aav_msgs.msg import TargetPosition
 from aav_msgs.msg import LatLong
 from .topic_converter import ArduPilotMode
 
+# TODO Need to check that the detected object label is the red circle. Use if statement on objectlabel. We don't want to align to stuff like the GCP points.
+
 # TODO Need to send command to land drone. 
 # Do this once we reach the hardcoded altitude. 
 # Only run this drone landing code on the payload delivery mission (need a way to turn this on/off).
