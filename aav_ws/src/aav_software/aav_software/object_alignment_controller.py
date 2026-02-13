@@ -6,7 +6,7 @@ from aav_msgs.msg import TargetPosition
 from aav_msgs.msg import LatLong
 from .topic_converter import ArduPilotMode
 
-# TODO Need to send command to land drone
+# TODO Need to send command to land drone. Just need to change ardupilot mode to LAND
 # TODO Need to automatically drop payload (call electrical python code)
 
 
