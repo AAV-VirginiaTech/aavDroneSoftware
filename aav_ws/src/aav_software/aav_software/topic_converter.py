@@ -12,7 +12,7 @@ from enum import Enum, IntEnum
 # TODO: Can "Hardcode" the alititude to send to ardupilot
 # TODO: Create enum within this file. Look at Charlie's object_alignment_controller code. Or just ask him about it.
 # TODO: Finish rest of the functionality in this file. Look in test_node on how to publish new gps location to arudpilot. Need altitude in order for drone to not crash :)
-# todo: remove (or update) this class once topic_converter assigns mode values
+# TODO: remove (or update) this class once topic_converter assigns mode values
 
 class ArduPilotMode(IntEnum):
     STABILIZE =     0  # manual airframe angle with manual throttle
@@ -43,13 +43,13 @@ class ArduPilotMode(IntEnum):
     TURTLE =       28  # Flip over after crash
 
 
-
 class TopicConverter(Node):
     def __init__(self):
         super().__init__("topic_converter")
         self.get_logger().info("Topic Converter has been launched")
 
         self.current_altitude = None
+        self.minimun_altitude = None #update everytime 
 
         # Subscriber(Mode): ArduPilot -> TC
         self.status_subscriber = self.create_subscription(Status, '/ap/status', self.status_callback, 10)
@@ -68,32 +68,34 @@ class TopicConverter(Node):
 
     
     def status_callback(self, msg: Status):
-        ap_mode = msg.mode
+        ap_mode = ArduPilotMode(msg.mode)
 
-        self.get_logger().info("ArduPilot is in GUIDED mode.")
-        self.current_mode = msg.mode
+        self.current_mode = ap_mode 
+        self.get_logger().info(f"Received ArduPilot mode: {self.current_mode.name} ({self.current_mode.value})")
         mode_msg = Mode()
-        mode_msg.mode = msg.mode
+        mode_msg.mode = self.current_mode.value
         
         self.mode_publisher.publish(mode_msg)
-        self.get_logger().info(f"Published current mode: {mode_msg.mode}")
 
     def global_position_callback(self, msg: GlobalPosition):
         self.current_altitude = msg.altitude
         gps_msg = DronePosition()
         gps_msg.latitude = msg.latitude
         gps_msg.longitude = msg.longitude
-        gps_msg.altitude = msg.altitude
+        gps_msg.altitude = 10.0
         gps_msg.yaw = msg.yaw   
 
         self.gps_publisher.publish(gps_msg)
         self.get_logger().info(f"Published GPS lat={gps_msg.latitude}, lon={gps_msg.longitude}, alt={gps_msg.altitude}, yaw={gps_msg.yaw}")
 
     def new_position_callback(self, msg: LatLong):
-        if self.current_altitude is None:
-            self.get_logger().warning("Current altitude is unknown. Cannot publish new GPS position to ArduPilot.")
+        if self.current_mode != ArduPilotMode.GUIDED:
+            self.get_logger().warning("Current mode is not GUIDED. Cannot publish new GPS position to ArduPilot.")
             return
         
+        if self.current_altitude < self.minimun_altitude:
+            self.minimun_altitude = self.current_altitude
+  
         new_gps_msg = GlobalPosition()
         new_gps_msg.latitude = msg.latitude
         new_gps_msg.longitude = msg.longitude
@@ -102,8 +104,6 @@ class TopicConverter(Node):
 
         self.new_gps_publisher.publish(new_gps_msg)
         self.get_logger().info(f"Published new GPS position to ArduPilot: lat={new_gps_msg.latitude}, lon={new_gps_msg.longitude}, alt={new_gps_msg.altitude}, yaw={new_gps_msg.yaw}")
-
-
 
 
 def main(args=None):
