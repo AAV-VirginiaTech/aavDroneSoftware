@@ -12,6 +12,7 @@ from .topic_converter import ArduPilotMode
 # TODO Need to automatically drop payload (call electrical python code)
 
 
+# Testing commands:
 """
 # Launch Object Alignment Controller
 ros2 run aav_software object_alignment_controller
@@ -34,6 +35,18 @@ longitude: -80.4139
 
 # Test landing drone
 ros2 service call /ap/mode_switch ardupilot_msgs/srv/ModeSwitch "{mode: 9}"
+
+
+# Test taking off drone
+
+Switch to Guided Mode (needed for takeoff):
+ros2 service call /ap/mode_switch ardupilot_msgs/srv/ModeSwitch "{mode: 4}" 
+
+Arm Motors:
+ros2 service call /ap/arm_motors ardupilot_msgs/srv/ArmMotors "{arm: true}"
+
+Execute Takeoff (e.g., 30 meters):
+ros2 service call /ap/experimental/takeoff ardupilot_msgs/srv/Takeoff "{alt: 30.0}"
 
 """
 

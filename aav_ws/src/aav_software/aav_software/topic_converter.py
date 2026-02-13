@@ -13,6 +13,21 @@ from enum import Enum, IntEnum
 # TODO: Finish rest of the functionality in this file. Look in test_node on how to publish new gps location to arudpilot. Need altitude in order for drone to not crash :)
 # TODO: remove (or update) this class once topic_converter assigns mode values
 
+
+#Testing commands:
+"""
+# Send new gps cordinate
+ros2 topic pub --once /ap/cmd_gps_pose ardupilot_msgs/msg/GlobalPosition "{
+  header: {frame_id: 'map'},
+  coordinate_frame: 5,
+  latitude: -35.365822,
+  longitude: 149.163124,
+  altitude: 600.0
+}"
+
+
+"""
+
 class ArduPilotMode(IntEnum):
     STABILIZE =     0  # manual airframe angle with manual throttle
     ACRO =          1  # manual body-frame angular rate with manual throttle
