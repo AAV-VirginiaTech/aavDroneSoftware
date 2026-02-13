@@ -6,6 +6,25 @@ from aav_msgs.msg import TargetPosition
 from aav_msgs.msg import LatLong
 from topic_converter import GuidedMode
 
+# TODO Need to send command to land drone
+# TODO Need to automatically drop payload (call electrical python code)
+
+
+"""
+# Send new mode
+
+ros2 topic pub --once /AAV/current_mode aav_msgs/msg/Mode "{mode: 4}"
+
+# Send new target position
+
+ros2 topic pub --once /AAV/estimated_target_position aav_msgs/msg/TargetPosition "{
+object_label: 'target_1',
+latitude: 37.2296,
+longitude: -80.4139
+  }"
+
+"""
+
 
 class ObjectAlignmentController(Node):
     def __init__(self):
