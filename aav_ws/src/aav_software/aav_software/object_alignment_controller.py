@@ -6,17 +6,8 @@ from aav_msgs.msg import TargetPosition
 from aav_msgs.msg import LatLong
 from .topic_converter import ArduPilotMode
 
-# TODO Need to check that the detected object label is the red circle. Use if statement on objectlabel. We don't want to align to stuff like the GCP points.
-
-# TODO Need to send command to land drone. 
-# Do this once we reach the hardcoded altitude. 
-# Only run this drone landing code on the payload delivery mission (need a way to turn this on/off).
-# ros2 service call /ap/mode_switch ardupilot_msgs/srv/ModeSwitch "{mode: 9}"
-
-# TODO Need to automatically drop payload (call electrical python code)
-
-# TODO Need to automatically take off again after dropping payload (only for payload delivery mission)
-# Can create a new custom mode within ArduPilotMode ENUM for taking off. Topic Converter will deal with the actual logic for taking off.
+# TODO: Implement Pseudocode in Notion page
+# https://www.notion.so/vtaav/Object-Alignment-Controller-Pseudocode-308623fcf7fe80609d81f3410f0f6a13?source=copy_link
 
 
 # Testing commands:
@@ -26,6 +17,8 @@ ros2 run aav_software object_alignment_controller
 
 #View output topic
 ros2 topic echo /AAV/send_new_position
+
+ros2 topic echo /AAV/set_mode
 
 # Send new mode
 
@@ -38,6 +31,15 @@ object_label: 'target_1',
 latitude: 37.2296,
 longitude: -80.4139
   }"
+  
+  
+# Send new drone position
+ros2 topic pub --once /AAV/current_gps_position aav_msgs/msg/DronePosition "{
+latitude: 37.2295,
+longitude: -80.4138,
+altitude: 30.0,
+yaw: 0.0
+}"
 
 
 
