@@ -43,23 +43,6 @@ yaw: 0.0
 
 
 
-### Aditional testing for later stuff ###
-
-# Test landing drone
-ros2 service call /ap/mode_switch ardupilot_msgs/srv/ModeSwitch "{mode: 9}"
-
-
-# Test taking off drone
-
-Switch to Guided Mode (needed for takeoff):
-ros2 service call /ap/mode_switch ardupilot_msgs/srv/ModeSwitch "{mode: 4}" 
-
-Arm Motors (need to call execute takeoff command right after this, otherwise drone will disarm for safety):
-ros2 service call /ap/arm_motors ardupilot_msgs/srv/ArmMotors "{arm: true}"
-
-Execute Takeoff (e.g., 30 meters):
-ros2 service call /ap/experimental/takeoff ardupilot_msgs/srv/Takeoff "{alt: 30.0}"
-
 """
 
 

@@ -8,15 +8,42 @@ from aav_msgs.msg import DronePosition
 from aav_msgs.msg import LatLong
 from enum import Enum, IntEnum
 
-# TODO: Can "Hardcode" the alititude to send to ardupilot. Need to do add desired altitude to min altitude
-# TODO: Finish rest of the functionality in this file. Look in test_node on how to publish new gps location to arudpilot. Need altitude in order for drone to not crash :)
-# TODO: remove (or update) this class once topic_converter assigns mode values
+# TODO: Can "Hardcode" the alititude to send to ardupilot. Need to do add desired altitude to min altitude. Hardcode to 8 meters above the ground.
+# TODO: Finish rest of the functionality in this file. Look in test_node on how to publish new gps location to arudpilot.
 
 # TODO: The altitude you publish to /AAV/current_gps_position topic should be the altitude relative to the ground. Will need to do math for this.
+
+# TODO: Implement the new takeoff mode.
+# 1. Switch mode to guided
+# 2. Arm motors
+# 3. Publish new gps position with desired takeoff altitude (e.g., 30 meters)
 
 
 #Testing commands:
 """
+# Send new position
+ros2 topic pub --once /AAV/send_new_position aav_msgs/msg/LatLong "{
+  latitude: 37.2295,
+  longitude: -80.4138
+}"
+
+
+
+# View Topic
+ros2 topic echo /AAV/current_gps_position
+
+ros2 topic echo /AAV/current_mode
+
+
+
+
+# Send new mode
+
+ros2 topic pub --once /AAV/current_mode aav_msgs/msg/Mode "{mode: 4}"
+
+
+### Aditional testing ###
+
 # Send new gps cordinate
 ros2 topic pub --once /ap/cmd_gps_pose ardupilot_msgs/msg/GlobalPosition "{
   header: {frame_id: 'map'},
@@ -26,6 +53,20 @@ ros2 topic pub --once /ap/cmd_gps_pose ardupilot_msgs/msg/GlobalPosition "{
   altitude: 600.0
 }"
 
+# Test landing drone
+ros2 service call /ap/mode_switch ardupilot_msgs/srv/ModeSwitch "{mode: 9}"
+
+
+# Test taking off drone
+
+Switch to Guided Mode (needed for takeoff):
+ros2 service call /ap/mode_switch ardupilot_msgs/srv/ModeSwitch "{mode: 4}" 
+
+Arm Motors (need to call execute takeoff command right after this, otherwise drone will disarm for safety):
+ros2 service call /ap/arm_motors ardupilot_msgs/srv/ArmMotors "{arm: true}"
+
+Execute Takeoff (e.g., 30 meters):
+ros2 service call /ap/experimental/takeoff ardupilot_msgs/srv/Takeoff "{alt: 30.0}"
 
 """
 
@@ -56,6 +97,7 @@ class ArduPilotMode(IntEnum):
     AUTOROTATE =   26  # Autonomous autorotation
     AUTO_RTL =     27  # Auto RTL, this is not a true mode, AUTO will report as this mode if entered to perform a DO_LAND_START Landing sequence
     TURTLE =       28  # Flip over after crash
+    TAKEOFF =      29  # Custom AAV mode. Will report as GUIDED to ArduPilot, but will have custom takeoff behavior in the topic converter.
 
 
 class TopicConverter(Node):

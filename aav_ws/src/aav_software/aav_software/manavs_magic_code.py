@@ -12,6 +12,16 @@ from yolo_msgs import Pose2d
 # For Publisher
 from aav_msgs import TargetPosition
 
+
+# Testing commands:
+"""
+
+# View output topic
+ros2 topic echo /AAV/estimated_target_position
+
+"""
+
+
 """
 This code outputs the position (lat, lon) of a target after being inputted with various variables.
 The following inputs are required: craft.roll, craft.pitch, craft.yaw, craft.alt, craft_lat, craft_lon, targ_pos.x_norm, targ_pos.y_norm.
