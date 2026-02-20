@@ -21,6 +21,8 @@ from ardupilot_msgs.srv import Takeoff
 # 2. Arm motors
 # 3. Publish new gps position with desired takeoff altitude (e.g., 30 meters)
 
+# NOTE: Don't worry about the lidar stuff for now. Just do the above todos and we can figure out lidar later
+
 
 #Testing commands:
 """
