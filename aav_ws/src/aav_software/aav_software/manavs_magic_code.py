@@ -34,7 +34,7 @@ class ManavsMagicCode(Node):
         super().__init__("manavs_magic_code")
         
         self.gps_sub = self.create_subscription(DronePosition, "AAV/current_gps_position", self.update_craft_gps, 10)
-        self.yolo_sub = self.create_subscription(Pose2d, "/yolo/tracking", self.manavacadabra, 10)
+        self.yolo_sub = self.create_subscription(Pose2d, "/yolo/tracking", self.update_targ_gps, 10)
         self.publisher = self.create_publisher(TargetPosition, "AAV/estimated_target_position", 10)
 
         self.craft = Craft()
@@ -51,7 +51,7 @@ class ManavsMagicCode(Node):
         self.craft.yaw = radians(msg_in.yaw)
 
 
-    def manavacadabra(self, msg_in: Pose2d):
+    def update_targ_gps(self, msg_in: Pose2d):
         targ_pos, cam = calc_targ_dist(craft, targ_pos, cam)
         craft, targ_pos = calc_targ_loc(craft, targ_pos)
         msg_out = TargetPosition()
@@ -79,9 +79,18 @@ class targ_pos:
 
 """ Info Regarding Camera Specifications """
 class cam:
-    # TODO: Ensure this is the *actual* camera FOV
-    fov_hor = radians(127) # Horizontal FOV of Camera (Radians)
-    fov_vert = radians(95) # Horizontal FOV of Camera (Radians)
+    """
+    The drone is currently using a SIYI A8 Mini gibmbaled camera.
+    Specs: https://siyi.biz/en/index.php?asd=22&id=specs
+    Diagonal FOV:    93.0 deg
+    Horizontal FOV:  81.0 deg
+    Vertical FOV:    65.3 deg
+    This is consistent with a standard useful 4:3 aspect ratio.
+    However, the camera records cropped to 16:9, so:
+    Vertical FOV:    51.3 deg
+    """
+    fov_hor = radians(81) # Horizontal FOV of Camera (Radians)
+    fov_vert = radians(51.3) # Vertical FOV of Camera (Radians)
 
 
 """ Calculate Distance (m) Between Image and Target Center """
@@ -114,7 +123,7 @@ def calc_targ_dist(craft, targ_pos, cam):
 
 """ Calculate Target Location (Lat, Lon) """
 def calc_targ_loc(craft, targ_pos):
-    # Convert Aircraft Posiition from Lat/Lon to UTM
+    # Convert Aircraft Position from Lat/Lon to UTM
     UTM_zone = ceil((craft.lon + 180) / 6)
     proj_latlon = pyproj.Proj(proj='latlong',datum='WGS84')
     proj_xy = pyproj.Proj(proj="utm", zone=UTM_zone, datum='WGS84')
