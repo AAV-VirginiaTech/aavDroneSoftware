@@ -106,7 +106,7 @@ class TopicConverter(Node):
         self.get_logger().info("Topic Converter has been launched")
 
         self.current_altitude = None
-        self.minimun_altitude = None #update everytime 
+        self.minimum_altitude = None #update everytime 
 
         # Subscriber(Mode): ArduPilot -> TC
         self.status_subscriber = self.create_subscription(Status, '/ap/status', self.status_callback, 10)
@@ -150,8 +150,8 @@ class TopicConverter(Node):
             self.get_logger().warning("Current mode is not GUIDED. Cannot publish new GPS position to ArduPilot.")
             return
         
-        if self.current_altitude < self.minimun_altitude:
-            self.minimun_altitude = self.current_altitude
+        if self.current_altitude < self.minimum_altitude:
+            self.minimum_altitude = self.current_altitude
   
         new_gps_msg = GlobalPosition()
         new_gps_msg.latitude = msg.latitude
