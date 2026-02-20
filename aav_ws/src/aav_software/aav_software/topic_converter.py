@@ -7,6 +7,9 @@ from ardupilot_msgs.msg import GlobalPosition
 from aav_msgs.msg import DronePosition
 from aav_msgs.msg import LatLong
 from enum import Enum, IntEnum
+from ardupilot_msgs.srv import ModeSwitch
+from ardupilot_msgs.srv import ArmMotors
+from ardupilot_msgs.srv import Takeoff
 
 # TODO: Can "Hardcode" the alititude to send to ardupilot. Need to do add desired altitude to min altitude. Hardcode to 8 meters above the ground.
 # TODO: Finish rest of the functionality in this file. Look in test_node on how to publish new gps location to arudpilot.
@@ -161,6 +164,67 @@ class TopicConverter(Node):
 
         self.new_gps_publisher.publish(new_gps_msg)
         self.get_logger().info(f"Published new GPS position to ArduPilot: lat={new_gps_msg.latitude}, lon={new_gps_msg.longitude}, alt={new_gps_msg.altitude}, yaw={new_gps_msg.yaw}")
+
+
+
+        def takeoff(self, takeoff_altitude: float = 30.0) -> bool:
+        """
+        Perform a takeoff sequence:
+        1) switch ArduPilot to GUIDED
+        2) arm motors
+        3) publish a GlobalPosition with the desired takeoff altitude
+
+
+        Returns True on success, False on failure.
+        """
+        # 1) Switch to GUIDED via service
+        try:
+            mode_client = self.create_client(ModeSwitch, '/ap/mode_switch')
+            if not mode_client.wait_for_service(timeout_sec=5.0):
+                self.get_logger().error(f"Mode switch service not available")
+                return False
+            mode_req = ModeSwitch.Request()
+            mode_req.mode = 4 # GUIDED mode value
+            mode_fut = mode_client.call_async(mode_req)
+            rclpy.spin_until_future_complete(self, mode_fut, timeout_sec=5.0)
+            if mode_fut.result() is None:
+                self.get_logger().error(f"Mode switch service call failed")
+                return False
+            self.get_logger().info(f"Switched to GUIDED mode")
+
+
+            # 2) Arm motors via service
+            arm_client = self.create_client(ArmMotors, '/ap/arm_motors')
+            if not arm_client.wait_for_service(timeout_sec=5.0):
+                self.get_logger().error(f"Arm service not available")
+                return False
+            arm_req = ArmMotors.Request()
+            arm_req.arm = True
+            arm_fut = arm_client.call_async(arm_req)
+            rclpy.spin_until_future_complete(self, arm_fut, timeout_sec=5.0)
+            if arm_fut.result() is None:
+                self.get_logger().error(f"Arm call failed")
+                return False
+            self.get_logger().info("Motors armed")
+       
+            # 3) Publish a new GlobalPosition with desired takeoff altitude
+            takeoff_client = self.create_client(Takeoff, '/ap/esperimental/takeoff')
+            if not takeoff_client.wait_for_service(timeout_sec=5.0):
+                self.get_logger().error('Takeoff service not available')
+                return False
+            tk_req = Takeoff.Request()
+            tk_req.alt = float(altitude_m)
+            tk_fut = takeoff_client.call_async(tk_req)
+            rclpy.spin_until_future_complete(self, tk_fut, timeout_sec=5.0)
+            if tk_fut.result() is None:
+                self.get_logger().error("Takeoff call failed")
+                return False
+            self.get_logger().info(f'Takeoff initiated to {altitude_m} meters')
+            return True
+        finally:
+            self.destroy_node()
+            rclpy.shutdown()
+   
 
 
 def main(args=None):
