@@ -11,7 +11,8 @@ from enum import Enum
 
 # TODO: Implement mode switching todos below
 # TODO: Replace magic numbers with named constants
-# TODO: Interface with substructure code
+# TODO: Interface with payload control code
+# TODO: Use consistent casing on class members
 
 # Testing commands:
 """
