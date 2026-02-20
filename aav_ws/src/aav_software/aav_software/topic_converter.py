@@ -126,6 +126,8 @@ class TopicConverter(Node):
         #Publisher(NewPosition): TC -> ArduPilot
         self.new_gps_publisher = self.create_publisher(GlobalPosition, '/ap/set_gps_position', 10)
 
+        self.hardcoded_altitude = 8.0
+
     
     def status_callback(self, msg: Status):
         ap_mode = ArduPilotMode(msg.mode)
@@ -142,7 +144,7 @@ class TopicConverter(Node):
         gps_msg = DronePosition()
         gps_msg.latitude = msg.latitude
         gps_msg.longitude = msg.longitude
-        gps_msg.altitude = 10.0
+        gps_msg.altitude = msg.altitude # needs to change we are now using lidar
         gps_msg.yaw = msg.yaw   
 
         self.gps_publisher.publish(gps_msg)
@@ -159,7 +161,8 @@ class TopicConverter(Node):
         new_gps_msg = GlobalPosition()
         new_gps_msg.latitude = msg.latitude
         new_gps_msg.longitude = msg.longitude
-        new_gps_msg.altitude = self.current_altitude  # Use current altitude to avoid crashing
+        new_gps_msg.altitude = self.hardcoded_altitude  # Hardcoded altitude
+
         new_gps_msg.yaw = 0.0  # Default yaw, can be modified as needed
 
         self.new_gps_publisher.publish(new_gps_msg)
@@ -167,7 +170,7 @@ class TopicConverter(Node):
 
 
 
-        def takeoff(self, takeoff_altitude: float = 30.0) -> bool:
+    def takeoff(self, takeoff_altitude: float = 30.0) -> bool:
         """
         Perform a takeoff sequence:
         1) switch ArduPilot to GUIDED
@@ -213,13 +216,13 @@ class TopicConverter(Node):
                 self.get_logger().error('Takeoff service not available')
                 return False
             tk_req = Takeoff.Request()
-            tk_req.alt = float(altitude_m)
+            tk_req.alt = float(takeoff_altitude)
             tk_fut = takeoff_client.call_async(tk_req)
             rclpy.spin_until_future_complete(self, tk_fut, timeout_sec=5.0)
             if tk_fut.result() is None:
                 self.get_logger().error("Takeoff call failed")
                 return False
-            self.get_logger().info(f'Takeoff initiated to {altitude_m} meters')
+            self.get_logger().info(f'Takeoff initiated to {takeoff_altitude} meters')
             return True
         finally:
             self.destroy_node()
