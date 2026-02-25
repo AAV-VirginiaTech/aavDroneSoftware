@@ -11,17 +11,6 @@ from ardupilot_msgs.srv import ModeSwitch
 from ardupilot_msgs.srv import ArmMotors
 from ardupilot_msgs.srv import Takeoff
 
-# TODO: Can "Hardcode" the alititude to send to ardupilot. Need to do add desired altitude to min altitude. Hardcode to 8 meters above the ground.
-# TODO: Finish rest of the functionality in this file. Look in test_node on how to publish new gps location to arudpilot.
-
-# TODO: The altitude you publish to /AAV/current_gps_position topic should be the altitude relative to the ground. Will need to do math for this.
-
-# TODO: Implement the new takeoff mode.
-# 1. Switch mode to guided
-# 2. Arm motors
-# 3. Publish new gps position with desired takeoff altitude (e.g., 30 meters)
-
-# NOTE: Don't worry about the lidar stuff for now. Just do the above todos and we can figure out lidar later
 
 
 #Testing commands:
@@ -111,7 +100,7 @@ class TopicConverter(Node):
         self.get_logger().info("Topic Converter has been launched")
 
         self.current_altitude = None
-        self.minimum_altitude = None #update everytime 
+        self.minimum_altitude = None #update everytime #TODO: This will crash with the if statement comparison. Change to float('inf') or something like that.
 
         # Subscriber(Mode): ArduPilot -> TC
         self.status_subscriber = self.create_subscription(Status, '/ap/status', self.status_callback, 10)
@@ -136,6 +125,9 @@ class TopicConverter(Node):
 
         self.current_mode = ap_mode 
         self.get_logger().info(f"Received ArduPilot mode: {self.current_mode.name} ({self.current_mode.value})")
+        
+        # TODO: Need to call takeoff mode from here. Check if mode is 29 and if so call the function.
+        
         mode_msg = Mode()
         mode_msg.mode = self.current_mode.value
         
@@ -146,7 +138,7 @@ class TopicConverter(Node):
         gps_msg = DronePosition()
         gps_msg.latitude = msg.latitude
         gps_msg.longitude = msg.longitude
-        gps_msg.altitude = msg.altitude # needs to change we are now using lidar
+        gps_msg.altitude = msg.altitude # TODO: Subtract altitude from ardupilot from min altitude to get altitude relative to the ground
         gps_msg.yaw = msg.yaw   
 
         self.gps_publisher.publish(gps_msg)
@@ -157,13 +149,14 @@ class TopicConverter(Node):
             self.get_logger().warning("Current mode is not GUIDED. Cannot publish new GPS position to ArduPilot.")
             return
         
+        #TODO: The if statement below should prob should be moved to global_position_callback. We want this to update when we get a new location from ardupilot, not when yolo detects something.
         if self.current_altitude < self.minimum_altitude:
             self.minimum_altitude = self.current_altitude
   
         new_gps_msg = GlobalPosition()
         new_gps_msg.latitude = msg.latitude
         new_gps_msg.longitude = msg.longitude
-        new_gps_msg.altitude = self.hardcoded_altitude  # Hardcoded altitude
+        new_gps_msg.altitude = self.hardcoded_altitude  # Hardcoded altitude # TODO: Need to add min altitude to this hardcoded altitude to get the actual altitude to send to ardupilot
 
         new_gps_msg.yaw = 0.0  # Default yaw, can be modified as needed
 

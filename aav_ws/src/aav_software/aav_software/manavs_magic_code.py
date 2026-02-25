@@ -13,6 +13,11 @@ from yolo_msgs.msg import Pose2D
 from aav_msgs.msg import TargetPosition
 
 
+# TODO: Fix these issues found here
+# https://www.notion.so/Manavs-magic-code-issues-to-fix-312623fcf7fe80668e4ad2470ce1d28c?source=copy_link
+
+
+
 # Testing commands:
 """
 
