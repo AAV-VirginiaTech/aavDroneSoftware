@@ -6,11 +6,11 @@ from math import *
 import numpy as np
 import pyproj
 # For GPS subscriber
-from aav_msgs import DronePosition
+from aav_msgs.msg import DronePosition
 # For YOLO Subscriber
-from yolo_msgs import Pose2d
+from yolo_msgs.msg import Pose2D
 # For Publisher
-from aav_msgs import TargetPosition
+from aav_msgs.msg import TargetPosition
 
 
 # Testing commands:
@@ -34,7 +34,7 @@ class ManavsMagicCode(Node):
         super().__init__("manavs_magic_code")
         
         self.gps_sub = self.create_subscription(DronePosition, "AAV/current_gps_position", self.update_craft_gps, 10)
-        self.yolo_sub = self.create_subscription(Pose2d, "/yolo/tracking", self.update_targ_gps, 10)
+        self.yolo_sub = self.create_subscription(Pose2D, "/yolo/tracking", self.update_targ_gps, 10)
         self.publisher = self.create_publisher(TargetPosition, "AAV/estimated_target_position", 10)
 
         self.craft = Craft()
@@ -51,7 +51,7 @@ class ManavsMagicCode(Node):
         self.craft.yaw = radians(msg_in.yaw)
 
 
-    def update_targ_gps(self, msg_in: Pose2d):
+    def update_targ_gps(self, msg_in: Pose2D):
         targ_pos, cam = calc_targ_dist(craft, targ_pos, cam)
         craft, targ_pos = calc_targ_loc(craft, targ_pos)
         msg_out = TargetPosition()
