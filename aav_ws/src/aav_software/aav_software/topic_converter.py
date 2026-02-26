@@ -99,8 +99,8 @@ class TopicConverter(Node):
         super().__init__("topic_converter")
         self.get_logger().info("Topic Converter has been launched")
 
-        self.current_altitude = None
-        self.minimum_altitude = None #update everytime #TODO: This will crash with the if statement comparison. Change to float('inf') or something like that.
+        self.current_altitude = None #TODO: Remove current_altitude variable
+        self.minimum_altitude = None
 
         # Subscriber(Mode): ArduPilot -> TC
         self.status_subscriber = self.create_subscription(Status, '/ap/status', self.status_callback, 10)
@@ -126,7 +126,7 @@ class TopicConverter(Node):
         self.current_mode = ap_mode 
         self.get_logger().info(f"Received ArduPilot mode: {self.current_mode.name} ({self.current_mode.value})")
         
-        # TODO: Need to call takeoff mode from here. Check if mode is 29 and if so call the function.
+        # TODO: Need to call takeoff mode from here. Check if mode is 29 and if so call the function. Just return after this point if mode is 29.
         
         mode_msg = Mode()
         mode_msg.mode = self.current_mode.value
@@ -134,7 +134,7 @@ class TopicConverter(Node):
         self.mode_publisher.publish(mode_msg)
 
     def global_position_callback(self, msg: GlobalPosition):
-        self.current_altitude = msg.altitude
+        self.current_altitude = msg.altitude # TODO: Shouldnt need the current_alitude variable for anything. Can remove this
         gps_msg = DronePosition()
         gps_msg.latitude = msg.latitude
         gps_msg.longitude = msg.longitude
@@ -150,6 +150,8 @@ class TopicConverter(Node):
             return
         
         #TODO: The if statement below should prob should be moved to global_position_callback. We want this to update when we get a new location from ardupilot, not when yolo detects something.
+        #TODO: Just use value directly from ardupilot (once moved) instead of current_altitude variable.
+        #TODO: Add check for minimum_altitude being not None before comparing them. If minimum altitude is None, then we can just set it to the current altitude. This way we can avoid issues with minimum_altitude not being initialized yet.
         if self.current_altitude < self.minimum_altitude:
             self.minimum_altitude = self.current_altitude
   
@@ -211,7 +213,7 @@ class TopicConverter(Node):
                 self.get_logger().error('Takeoff service not available')
                 return False
             tk_req = Takeoff.Request()
-            tk_req.alt = float(takeoff_altitude)
+            tk_req.alt = float(takeoff_altitude) # TODO: Need to add minimum altitude to this hardcoded altitude to get the actual altitude to send to ardupilot
             tk_fut = takeoff_client.call_async(tk_req)
             rclpy.spin_until_future_complete(self, tk_fut, timeout_sec=5.0)
             if tk_fut.result() is None:
@@ -220,6 +222,7 @@ class TopicConverter(Node):
             self.get_logger().info(f'Takeoff initiated to {takeoff_altitude} meters')
             return True
         finally:
+            # TODO: We dont want topic converter to shut down after takeoff. Maybe just add log message saying takeoff is done or something.
             self.destroy_node()
             rclpy.shutdown()
    

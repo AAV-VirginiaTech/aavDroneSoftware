@@ -9,6 +9,9 @@ from aav_msgs.msg import DronePosition
 from .topic_converter import ArduPilotMode
 from enum import Enum
 
+# Reference Pseudocode:
+# https://www.notion.so/vtaav/Object-Alignment-Controller-Pseudocode-308623fcf7fe80609d81f3410f0f6a13?source=copy_link
+
 # TODO: Implement mode switching todos below
 # TODO: Replace magic numbers with named constants
 # TODO: Interface with payload control code
