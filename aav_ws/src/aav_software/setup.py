@@ -24,7 +24,6 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            "test_node = aav_software.test_node:main",
             "manavs_magic_code = aav_software.manavs_magic_code:main",
             "location_logger = aav_software.location_logger:main",
             "topic_converter = aav_software.topic_converter:main",
