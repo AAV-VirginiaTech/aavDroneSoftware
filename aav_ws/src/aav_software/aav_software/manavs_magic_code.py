@@ -2,20 +2,15 @@
 import rclpy
 from rclpy.node import Node
 # For Manav's Code
-from math import *
+import math
 import numpy as np
-import pyproj
+from pyproj import CRS, Transformer
 # For GPS subscriber
 from aav_msgs.msg import DronePosition
 # For YOLO Subscriber
 from yolo_msgs.msg import DetectionArray, Point2D
 # For Publisher
 from aav_msgs.msg import TargetPosition
-
-
-# TODO: Fix these issues found here
-# https://www.notion.so/Manavs-magic-code-issues-to-fix-312623fcf7fe80668e4ad2470ce1d28c?source=copy_link
-
 
 
 # Testing commands:
@@ -56,7 +51,7 @@ class ManavsMagicCode(Node):
         self.craft.alt = msg_in.altitude
         self.craft.roll = 0 # radians(msg_in.roll)
         self.craft.pitch = 0 # radians(msg_in.pitch)
-        self.craft.yaw = radians(msg_in.yaw)
+        self.craft.yaw = math.radians(msg_in.yaw)
 
 
     def update_targ_gps(self, msg_in: DetectionArray):
@@ -72,7 +67,7 @@ class ManavsMagicCode(Node):
         
         # Calculate Target Position (Lat, Lon) and Publish
         self.targ_pos, self.cam = calc_targ_dist(self.craft, self.targ_pos, self.cam)
-        craft, self.targ_pos = calc_targ_loc(self.craft, self.targ_pos)
+        self.craft, self.targ_pos = calc_targ_loc(self.craft, self.targ_pos)
         msg_out = TargetPosition()
         msg_out.object_label = msg_in.detections[0].class_name
         msg_out.longitude = self.targ_pos.lon
@@ -85,9 +80,9 @@ class Craft:
     lat = 0 # Input, Latitude
     lon = 0 # Input, Longitude
     alt = 70 # Input, Altitude (m)
-    roll = radians(0) # Input, Roll (Radians) | Range from -PI/2 (Roll Left) to PI/2 (Roll Right)
-    pitch = radians(0) # Input, Pitch (Radians) | Range from -PI/2 (Nose Down) to PI/2 (Nose Up)
-    yaw = radians(0) # Input, Heading (Radians) | Range from 0 to 2PI (North) with Clockwise Rotation Being Positive
+    roll = math.radians(0) # Input, Roll (Radians) | Range from -PI/2 (Roll Left) to PI/2 (Roll Right)
+    pitch = math.radians(0) # Input, Pitch (Radians) | Range from -PI/2 (Nose Down) to PI/2 (Nose Up)
+    yaw = math.radians(0) # Input, Heading (Radians) | Range from 0 to 2PI (North) with Clockwise Rotation Being Positive
 
 
 """ Info Regarding Position of Target in Various Reference Frames """
@@ -109,8 +104,8 @@ class cam:
     Vertical FOV:    51.3 deg
     NOTE: This math is done with spherical trig (can't assume rectangular).
     """
-    fov_hor = radians(81) # Horizontal FOV of Camera (Radians)
-    fov_vert = radians(51.3) # Vertical FOV of Camera (Radians)
+    fov_hor = math.radians(81) # Horizontal FOV of Camera (Radians)
+    fov_vert = math.radians(51.3) # Vertical FOV of Camera (Radians)
     x_res = 640 # Horizontal Resolution of Camera (Pixels)
     y_res = 360 # Vertical Resolution of Camera (Pixels)
 
@@ -118,17 +113,17 @@ class cam:
 """ Calculate Distance (m) Between Image and Target Center """
 def calc_targ_dist(craft, targ_pos, cam):
     # Calculate Image FOV Coverage in Terms of Distance (m)
-    cam.fov_hor_dist = 2 * craft.alt * tan(cam.fov_hor/2)
-    cam.fov_vert_dist = 2 * craft.alt * tan(cam.fov_vert/2)
+    cam.fov_hor_dist = 2 * craft.alt * math.tan(cam.fov_hor/2)
+    cam.fov_vert_dist = 2 * craft.alt * math.tan(cam.fov_vert/2)
 
     # Calculate Distance (m) Between Image and Target Center Assuming ZERO Attitude (Level and Facing North)
     targ_pos.x_dist = cam.fov_hor_dist * (targ_pos.x_norm - 0.5) # Positive is Left, Negative Right
     targ_pos.y_dist = -cam.fov_vert_dist * (targ_pos.y_norm - 0.5) # Positive is Up, Negative Down
 
     # Form Rotation Matrix for Attitude Integration
-    Rx = np.array([[1, 0, 0], [0, cos(craft.roll), -sin(craft.roll)], [0, sin(craft.roll), cos(craft.roll)]])
-    Ry = np.array([[cos(craft.pitch), 0, sin(craft.pitch)], [0, 1, 0], [-sin(craft.pitch), 0, cos(craft.pitch)]])
-    Rz = np.array([[cos(craft.yaw), -sin(craft.yaw), 0], [sin(craft.yaw), cos(craft.yaw), 0], [0, 0, 1]])
+    Rx = np.array([[1, 0, 0], [0, math.cos(craft.roll), -math.sin(craft.roll)], [0, math.sin(craft.roll), math.cos(craft.roll)]])
+    Ry = np.array([[math.cos(craft.pitch), 0, math.sin(craft.pitch)], [0, 1, 0], [-math.sin(craft.pitch), 0, math.cos(craft.pitch)]])
+    Rz = np.array([[math.cos(craft.yaw), -math.sin(craft.yaw), 0], [math.sin(craft.yaw), math.cos(craft.yaw), 0], [0, 0, 1]])
     rotmat_rpy = np.matmul(np.matmul(Rz, Ry), Rx)
 
     # Apply Rotation Matrix to Distance Data for Attitude Integration
@@ -143,23 +138,37 @@ def calc_targ_dist(craft, targ_pos, cam):
     return targ_pos, cam
 
 
-""" Calculate Target Location (Lat, Lon) """
 def calc_targ_loc(craft, targ_pos):
-    # Convert Aircraft Position from Lat/Lon to UTM
-    UTM_zone = ceil((craft.lon + 180) / 6)
-    proj_latlon = pyproj.Proj(proj='latlong',datum='WGS84')
-    proj_xy = pyproj.Proj(proj="utm", zone=UTM_zone, datum='WGS84')
-    craft.y_UTM, craft.x_UTM = pyproj.transform(proj_latlon, proj_xy, craft.lon, craft.lat)
+    # Pick UTM zone (works fine for most cases; see note below for zone crossings)
+    utm_zone = math.floor((craft.lon + 180) / 6) + 1
+    is_northern = craft.lat >= 0
 
-    # Add Target Offset Distance to Aircraft UTM Position
-    targ_pos.x_UTM = craft.x_UTM + targ_pos.y_dist
-    targ_pos.y_UTM = craft.y_UTM + targ_pos.x_dist
+    crs_ll = CRS.from_epsg(4326)
+    crs_utm = CRS.from_dict({
+        "proj": "utm",
+        "zone": utm_zone,
+        "datum": "WGS84",
+        "south": not is_northern
+    })
 
-    # Convert Target Position from UTM to Lat/Lon
-    targ_pos.lon, targ_pos.lat = pyproj.transform(proj_xy, proj_latlon, targ_pos.y_UTM, targ_pos.x_UTM) 
+    # Force lon/lat order on input/output
+    to_utm = Transformer.from_crs(crs_ll, crs_utm, always_xy=True)
+    to_ll  = Transformer.from_crs(crs_utm, crs_ll, always_xy=True)
 
+    # lon, lat -> easting, northing
+    craft_e, craft_n = to_utm.transform(craft.lon, craft.lat)
+
+    # ---- OFFSETS ----
+    # If targ_pos.x_dist is EAST (+) and targ_pos.y_dist is NORTH (+), then:
+    targ_e = craft_e + targ_pos.x_dist
+    targ_n = craft_n + targ_pos.y_dist
+
+    # easting, northing -> lon, lat
+    targ_lon, targ_lat = to_ll.transform(targ_e, targ_n)
+
+    targ_pos.lon = targ_lon
+    targ_pos.lat = targ_lat
     return craft, targ_pos
-
 
 def main(args=None):
     rclpy.init(args=args)
