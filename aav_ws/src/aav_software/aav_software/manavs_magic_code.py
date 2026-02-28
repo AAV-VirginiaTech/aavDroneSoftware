@@ -8,7 +8,7 @@ import pyproj
 # For GPS subscriber
 from aav_msgs.msg import DronePosition
 # For YOLO Subscriber
-from yolo_msgs.msg import Pose2D
+from yolo_msgs.msg import DetectionArray, Point2D
 # For Publisher
 from aav_msgs.msg import TargetPosition
 
@@ -28,6 +28,7 @@ ros2 topic echo /AAV/estimated_target_position
 
 
 """
+From Manav:
 This code outputs the position (lat, lon) of a target after being inputted with various variables.
 The following inputs are required: craft.roll, craft.pitch, craft.yaw, craft.alt, craft_lat, craft_lon, targ_pos.x_norm, targ_pos.y_norm.
 The following values are hardcode: cam.fov_hor, cam.fov_vert.
@@ -39,7 +40,7 @@ class ManavsMagicCode(Node):
         super().__init__("manavs_magic_code")
         
         self.gps_sub = self.create_subscription(DronePosition, "AAV/current_gps_position", self.update_craft_gps, 10)
-        self.yolo_sub = self.create_subscription(Pose2D, "/yolo/tracking", self.update_targ_gps, 10)
+        self.yolo_sub = self.create_subscription(DetectionArray, "/yolo/detections", self.update_targ_gps, 10)
         self.publisher = self.create_publisher(TargetPosition, "AAV/estimated_target_position", 10)
 
         self.craft = Craft()
@@ -56,11 +57,22 @@ class ManavsMagicCode(Node):
         self.craft.yaw = radians(msg_in.yaw)
 
 
-    def update_targ_gps(self, msg_in: Pose2D):
-        targ_pos, cam = calc_targ_dist(craft, targ_pos, cam)
-        craft, targ_pos = calc_targ_loc(craft, targ_pos)
+    def update_targ_gps(self, msg_in: DetectionArray):
+        # Extract Detection Center from YOLO Detection Array (Assuming Only 1 Detection for Now)
+        if len(msg_in.detections) == 0:
+            return
+        center: Point2D = msg_in.detections[0].bbox.center.position
+
+        # Convert Center Coordinates to Normalized Values Based on Camera FOV
+        targ_pos.x_norm = center.x / 640 # Normalized Position of Target | 0 = Leftmost Edge, 0.5 = Middle, 1 = Rightmost Edge
+        targ_pos.y_norm = center.y / 360 # Normalized Position of Target | 0 = Top Edge, 0.5 = Middle, 1 = Bottom Edge
+        # NOTE: The above normalization is based on the SIYI A8 Mini's 16:9 cropped resolution of 640x360. If the camera or resolution changes, this will need to be updated.
+        
+        # Calculate Target Position (Lat, Lon) and Publish
+        targ_pos, cam = calc_targ_dist(self.craft, targ_pos, cam)
+        craft, targ_pos = calc_targ_loc(self.craft, targ_pos)
         msg_out = TargetPosition()
-        msg_out.object_label = msg_in.object_label
+        msg_out.object_label = msg_in.detections[0].object_label
         msg_out.longitude = targ_pos.lon
         msg_out.latitude = targ_pos.lat
         self.publisher.publish(msg_out)
@@ -93,6 +105,7 @@ class cam:
     This is consistent with a standard useful 4:3 aspect ratio.
     However, the camera records cropped to 16:9, so:
     Vertical FOV:    51.3 deg
+    NOTE: This math is done with spherical trig (can't assume rectangular).
     """
     fov_hor = radians(81) # Horizontal FOV of Camera (Radians)
     fov_vert = radians(51.3) # Vertical FOV of Camera (Radians)
