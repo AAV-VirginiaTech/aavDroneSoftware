@@ -14,7 +14,6 @@ from enum import Enum
 
 # TODO: Replace magic numbers with named constants
 # TODO: Interface with payload control code
-# TODO: Use consistent casing on class members
 
 # Testing commands:
 """
@@ -88,9 +87,15 @@ class ObjectAlignmentController(Node):
 
         self.get_logger().info("Object Alignment Controller has been launched")
 
-    def mode_callback(self, current_mode: Mode):
-        self.get_logger().info(f"Recieved new mode: {current_mode}")
-        self.current_mode = ArduPilotMode(current_mode.mode)
+    def send_new_mode(self, mode: ArduPilotMode):
+        new_mode = Mode()
+        new_mode.mode = mode
+        self.new_mode_pub.publish(new_mode)
+
+
+    def mode_callback(self, mode: Mode):
+        self.get_logger().info(f"Recieved new mode: {ArduPilotMode(mode.mode).name}")
+        self.current_mode = ArduPilotMode(mode.mode)
 
     def target_position_callback(self, target_position: TargetPosition):
         self.get_logger().info(f"Recieved new target position: {target_position}")
@@ -103,8 +108,6 @@ class ObjectAlignmentController(Node):
             return
 
         if (self.state == OacState.SEEKING):
-            self.new_mode_pub.publish(Mode(ArduPilotMode.GUIDED))
-
             new_position = LatLong()
             new_position.latitude = target_position.latitude
             new_position.longitude = target_position.longitude
@@ -114,15 +117,16 @@ class ObjectAlignmentController(Node):
             self.new_position_pub.publish(new_position)
 
     def gps_position_callback(self, gps_position: DronePosition):
+        self.get_logger().info(f"Recieved new gps position: {gps_position}")
         self.current_gps_position = gps_position
 
     def update_state_machine(self):
         match self.state:
             case OacState.SEEKING:
-                if self.last_target_position == None or self.current_gps_position.altitude > 8:
+                if not self.last_target_position or not self.current_gps_position or self.current_gps_position.altitude > 8:
                     pass # keep seeking
                 elif self.doing_package_delivery_mission:
-                    self.new_mode_pub.publish(Mode(ArduPilotMode.LAND))
+                    self.send_new_mode(ArduPilotMode.LAND)
 
                     self.state = OacState.LANDING
                 else:
@@ -132,25 +136,25 @@ class ObjectAlignmentController(Node):
 
             case OacState.DROPPING_PAYLOAD:
                 if (self.get_clock().now() - self.time_marker > Duration(seconds=5)):
-                    self.new_mode_pub.publish(Mode(ArduPilotMode.RTL))
+                    self.send_new_mode(ArduPilotMode.RTL)
 
                     self.state = OacState.RETURNING
 
             case OacState.LANDING:
-                if self.current_gps_position.altitude < 0.5:
+                if self.current_gps_position and self.current_gps_position.altitude < 0.5:
                     # TODO: Call package drop script
                     self.time_marker = self.get_clock().now()
                     self.state = OacState.DROPPING_PACKAGE
 
             case OacState.DROPPING_PACKAGE:
                 if (self.get_clock().now() - self.time_marker > Duration(seconds=5)):
-                    self.new_mode_pub.publish(Mode(ArduPilotMode.TAKEOFF))
+                    self.send_new_mode(ArduPilotMode.TAKEOFF)
 
                     self.state = OacState.TAKING_OFF
 
             case OacState.TAKING_OFF:
-                if self.current_gps_position.altitude > 30:
-                    self.new_mode_pub.publish(Mode(ArduPilotMode.RTL))
+                if self.current_gps_position and self.current_gps_position.altitude > 30:
+                    self.send_new_mode(ArduPilotMode.RTL)
 
                     self.state = OacState.RETURNING
 
