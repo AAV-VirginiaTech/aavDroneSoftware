@@ -67,34 +67,34 @@ class ObjectAlignmentController(Node):
     def __init__(self):
         super().__init__("object_alignment_controller")
 
-        self.modeSub = self.create_subscription(Mode, "/AAV/current_mode", self.mode_callback, 10)
-        self.targetPositionSub = self.create_subscription(TargetPosition, "/AAV/estimated_target_position", self.target_position_callback, 10)
-        self.currentDronePositionSub = self.create_subscription(DronePosition, "AAV/current_gps_position", self.gps_position_callback, 10)
+        self.mode_sub = self.create_subscription(Mode, "/AAV/current_mode", self.mode_callback, 10)
+        self.target_position_sub = self.create_subscription(TargetPosition, "/AAV/estimated_target_position", self.target_position_callback, 10)
+        self.current_drone_position_sub = self.create_subscription(DronePosition, "AAV/current_gps_position", self.gps_position_callback, 10)
 
-        self.newPositionPub = self.create_publisher(LatLong, "/AAV/send_new_position", 10)
-        self.newModePub = self.create_publisher(Mode, "/AAV/set_mode", 10)
+        self.new_position_pub = self.create_publisher(LatLong, "/AAV/send_new_position", 10)
+        self.new_mode_pub = self.create_publisher(Mode, "/AAV/set_mode", 10)
 
-        self.stateMachineTimer = self.create_timer(0.5, self.update_state_machine)
+        self.state_machine_timer = self.create_timer(0.5, self.update_state_machine)
 
-        self.currentMode = ArduPilotMode.AUTO
-        self.currentGpsPosition = None
+        self.current_mode = ArduPilotMode.AUTO
+        self.current_gps_position = None
 
-        self.lastTargetPosition = None
+        self.last_target_position = None
 
-        self.doingPackageDeliveryMission = True
+        self.doing_package_delivery_mission = True
 
         self.state = OacState.SEEKING
-        self.timeMarker = self.get_clock().now()
+        self.time_marker = self.get_clock().now()
 
         self.get_logger().info("Object Alignment Controller has been launched")
 
     def mode_callback(self, current_mode: Mode):
         self.get_logger().info(f"Recieved new mode: {current_mode}")
-        self.currentMode = ArduPilotMode(current_mode.mode)
+        self.current_mode = ArduPilotMode(current_mode.mode)
 
     def target_position_callback(self, target_position: TargetPosition):
         self.get_logger().info(f"Recieved new target position: {target_position}")
-        if (self.currentMode != ArduPilotMode.GUIDED):
+        if (self.current_mode != ArduPilotMode.GUIDED):
             self.get_logger().info("Not guided. Doing nothing.")
             return
 
@@ -103,54 +103,54 @@ class ObjectAlignmentController(Node):
             return
 
         if (self.state == OacState.SEEKING):
-            self.newModePub.publish(Mode(ArduPilotMode.GUIDED))
+            self.new_mode_pub.publish(Mode(ArduPilotMode.GUIDED))
 
             new_position = LatLong()
             new_position.latitude = target_position.latitude
             new_position.longitude = target_position.longitude
 
-            self.lastTargetPosition = new_position
+            self.last_target_position = new_position
 
-            self.newPositionPub.publish(new_position)
+            self.new_position_pub.publish(new_position)
 
     def gps_position_callback(self, gps_position: DronePosition):
-        self.currentGpsPosition = gps_position
+        self.current_gps_position = gps_position
 
     def update_state_machine(self):
         match self.state:
             case OacState.SEEKING:
-                if self.lastTargetPosition == None or self.currentGpsPosition.altitude > 8:
+                if self.last_target_position == None or self.current_gps_position.altitude > 8:
                     pass # keep seeking
-                elif self.doingPackageDeliveryMission:
-                    self.newModePub.publish(Mode(ArduPilotMode.LAND))
+                elif self.doing_package_delivery_mission:
+                    self.new_mode_pub.publish(Mode(ArduPilotMode.LAND))
 
                     self.state = OacState.LANDING
                 else:
                     # TODO: Call payload drop script
-                    self.timeMarker = self.get_clock().now()
+                    self.time_marker = self.get_clock().now()
                     self.state = OacState.DROPPING_PAYLOAD
 
             case OacState.DROPPING_PAYLOAD:
-                if (self.get_clock().now() - self.timeMarker > Duration(seconds=5)):
-                    self.newModePub.publish(Mode(ArduPilotMode.RTL))
+                if (self.get_clock().now() - self.time_marker > Duration(seconds=5)):
+                    self.new_mode_pub.publish(Mode(ArduPilotMode.RTL))
 
                     self.state = OacState.RETURNING
 
             case OacState.LANDING:
-                if self.currentGpsPosition.altitude < 0.5:
+                if self.current_gps_position.altitude < 0.5:
                     # TODO: Call package drop script
-                    self.timeMarker = self.get_clock().now()
+                    self.time_marker = self.get_clock().now()
                     self.state = OacState.DROPPING_PACKAGE
 
             case OacState.DROPPING_PACKAGE:
-                if (self.get_clock().now() - self.timeMarker > Duration(seconds=5)):
-                    self.newModePub.publish(Mode(ArduPilotMode.TAKEOFF))
+                if (self.get_clock().now() - self.time_marker > Duration(seconds=5)):
+                    self.new_mode_pub.publish(Mode(ArduPilotMode.TAKEOFF))
 
                     self.state = OacState.TAKING_OFF
 
             case OacState.TAKING_OFF:
-                if self.currentGpsPosition.altitude > 30:
-                    self.newModePub.publish(Mode(ArduPilotMode.RTL))
+                if self.current_gps_position.altitude > 30:
+                    self.new_mode_pub.publish(Mode(ArduPilotMode.RTL))
 
                     self.state = OacState.RETURNING
 
