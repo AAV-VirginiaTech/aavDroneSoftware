@@ -12,8 +12,7 @@ from enum import Enum
 # Reference Pseudocode:
 # https://www.notion.so/vtaav/Object-Alignment-Controller-Pseudocode-308623fcf7fe80609d81f3410f0f6a13?source=copy_link
 
-# TODO: Replace magic numbers with named constants
-# TODO: Interface with payload control code
+# TODO: Interface with substructure control code
 
 # Testing commands:
 """
@@ -50,6 +49,7 @@ yaw: 0.0
 
 """
 
+
 class OacState(Enum):
     """
     Impliments the state machine diagram shown on the Object Alignment Controller Miro board
@@ -63,6 +63,11 @@ class OacState(Enum):
 
 
 class ObjectAlignmentController(Node):
+    PROXIMITY_THRESHOLD_ALTITUDE = 8.0
+    SUBSTRUCTURE_ACTION_DURATION = Duration(seconds=5)
+    LANDING_THRESHOLD_ALTITUDE = 0.5
+    TAKEOFF_THRESHOLD_ALTITUDE = 30
+
     def __init__(self):
         super().__init__("object_alignment_controller")
 
@@ -103,7 +108,7 @@ class ObjectAlignmentController(Node):
             self.get_logger().info("Not guided. Doing nothing.")
             return
 
-        if (target_position.object_label != "Bullseye"):
+        if (target_position.object_label != "bullseye"):
             self.get_logger().info("The detected object is not a bullseye. Ignoring.")
             return
 
@@ -123,8 +128,12 @@ class ObjectAlignmentController(Node):
     def update_state_machine(self):
         match self.state:
             case OacState.SEEKING:
-                if not self.last_target_position or not self.current_gps_position or self.current_gps_position.altitude > 8:
-                    pass # keep seeking
+                if (not self.last_target_position or
+                    not self.current_gps_position or
+                    self.current_gps_position.altitude > ObjectAlignmentController.PROXIMITY_THRESHOLD_ALTITUDE):
+                    # TODO: Add more detailed proximity checks
+                    # keep seeking
+                    pass
                 elif self.doing_package_delivery_mission:
                     self.send_new_mode(ArduPilotMode.LAND)
 
@@ -137,28 +146,28 @@ class ObjectAlignmentController(Node):
                     self.get_logger().info(f"Switching state to {self.state.name}")
 
             case OacState.DROPPING_PAYLOAD:
-                if (self.get_clock().now() - self.time_marker > Duration(seconds=5)):
+                if self.get_clock().now() - self.time_marker > ObjectAlignmentController.SUBSTRUCTURE_ACTION_DURATION:
                     self.send_new_mode(ArduPilotMode.RTL)
 
                     self.state = OacState.RETURNING
                     self.get_logger().info(f"Switching state to {self.state.name}")
 
             case OacState.LANDING:
-                if self.current_gps_position and self.current_gps_position.altitude < 0.5:
+                if self.current_gps_position and self.current_gps_position.altitude < ObjectAlignmentController.LANDING_THRESHOLD_ALTITUDE:
                     # TODO: Call package drop script
                     self.time_marker = self.get_clock().now()
                     self.state = OacState.DROPPING_PACKAGE
                     self.get_logger().info(f"Switching state to {self.state.name}")
 
             case OacState.DROPPING_PACKAGE:
-                if (self.get_clock().now() - self.time_marker > Duration(seconds=5)):
+                if self.get_clock().now() - self.time_marker > ObjectAlignmentController.SUBSTRUCTURE_ACTION_DURATION:
                     self.send_new_mode(ArduPilotMode.TAKEOFF)
 
                     self.state = OacState.TAKING_OFF
                     self.get_logger().info(f"Switching state to {self.state.name}")
 
             case OacState.TAKING_OFF:
-                if self.current_gps_position and self.current_gps_position.altitude > 30:
+                if self.current_gps_position and self.current_gps_position.altitude > ObjectAlignmentController.TAKEOFF_THRESHOLD_ALTITUDE:
                     self.send_new_mode(ArduPilotMode.RTL)
 
                     self.state = OacState.RETURNING
