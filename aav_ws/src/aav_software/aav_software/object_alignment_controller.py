@@ -12,7 +12,6 @@ from enum import Enum
 # Reference Pseudocode:
 # https://www.notion.so/vtaav/Object-Alignment-Controller-Pseudocode-308623fcf7fe80609d81f3410f0f6a13?source=copy_link
 
-# TODO: Implement mode switching todos below
 # TODO: Replace magic numbers with named constants
 # TODO: Interface with payload control code
 # TODO: Use consistent casing on class members
@@ -53,6 +52,9 @@ yaw: 0.0
 """
 
 class OacState(Enum):
+    """
+    Impliments the state machine diagram shown on the Object Alignment Controller Miro board
+    """
     SEEKING = 0             # Monitoring for new targets; sending their positions
     DROPPING_PAYLOAD = 1    # Waiting for payload drop to finish
     LANDING = 2             # In landing mode; waiting to reach ground
@@ -68,7 +70,9 @@ class ObjectAlignmentController(Node):
         self.modeSub = self.create_subscription(Mode, "/AAV/current_mode", self.mode_callback, 10)
         self.targetPositionSub = self.create_subscription(TargetPosition, "/AAV/estimated_target_position", self.target_position_callback, 10)
         self.currentDronePositionSub = self.create_subscription(DronePosition, "AAV/current_gps_position", self.gps_position_callback, 10)
+
         self.newPositionPub = self.create_publisher(LatLong, "/AAV/send_new_position", 10)
+        self.newModePub = self.create_publisher(Mode, "/AAV/set_mode", 10)
 
         self.stateMachineTimer = self.create_timer(0.5, self.update_state_machine)
 
@@ -99,7 +103,7 @@ class ObjectAlignmentController(Node):
             return
 
         if (self.state == OacState.SEEKING):
-            # TODO: Switch mode to guided
+            self.newModePub.publish(Mode(ArduPilotMode.GUIDED))
 
             new_position = LatLong()
             new_position.latitude = target_position.latitude
@@ -118,7 +122,8 @@ class ObjectAlignmentController(Node):
                 if self.lastTargetPosition == None or self.currentGpsPosition.altitude > 8:
                     pass # keep seeking
                 elif self.doingPackageDeliveryMission:
-                    # TODO: Switch mode to land
+                    self.newModePub.publish(Mode(ArduPilotMode.LAND))
+
                     self.state = OacState.LANDING
                 else:
                     # TODO: Call payload drop script
@@ -127,7 +132,8 @@ class ObjectAlignmentController(Node):
 
             case OacState.DROPPING_PAYLOAD:
                 if (self.get_clock().now() - self.timeMarker > Duration(seconds=5)):
-                    # TODO: Switch mode to RTL
+                    self.newModePub.publish(Mode(ArduPilotMode.RTL))
+
                     self.state = OacState.RETURNING
 
             case OacState.LANDING:
@@ -138,12 +144,14 @@ class ObjectAlignmentController(Node):
 
             case OacState.DROPPING_PACKAGE:
                 if (self.get_clock().now() - self.timeMarker > Duration(seconds=5)):
-                    # TODO: Switch mode to takeoff
+                    self.newModePub.publish(Mode(ArduPilotMode.TAKEOFF))
+
                     self.state = OacState.TAKING_OFF
 
             case OacState.TAKING_OFF:
                 if self.currentGpsPosition.altitude > 30:
-                    # TODO: Switch mode to RTL
+                    self.newModePub.publish(Mode(ArduPilotMode.RTL))
+
                     self.state = OacState.RETURNING
 
             case OacState.RETURNING:
