@@ -74,7 +74,7 @@ class ManavsMagicCode(Node):
         self.targ_pos, self.cam = calc_targ_dist(self.craft, self.targ_pos, self.cam)
         craft, self.targ_pos = calc_targ_loc(self.craft, self.targ_pos)
         msg_out = TargetPosition()
-        msg_out.object_label = msg_in.detections[0].object_label
+        msg_out.object_label = msg_in.detections[0].class_name
         msg_out.longitude = self.targ_pos.lon
         msg_out.latitude = self.targ_pos.lat
         self.publisher.publish(msg_out)
