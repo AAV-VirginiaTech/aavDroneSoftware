@@ -44,6 +44,8 @@ class ManavsMagicCode(Node):
         self.publisher = self.create_publisher(TargetPosition, "AAV/estimated_target_position", 10)
 
         self.craft = Craft()
+        self.targ_pos = targ_pos()
+        self.cam = cam()
 
         self.get_logger().info("Manav's Magic Code has been launched.")
 
@@ -64,17 +66,17 @@ class ManavsMagicCode(Node):
         center: Point2D = msg_in.detections[0].bbox.center.position
 
         # Convert Center Coordinates to Normalized Values Based on Camera FOV
-        targ_pos.x_norm = center.x / 640 # Normalized Position of Target | 0 = Leftmost Edge, 0.5 = Middle, 1 = Rightmost Edge
-        targ_pos.y_norm = center.y / 360 # Normalized Position of Target | 0 = Top Edge, 0.5 = Middle, 1 = Bottom Edge
+        self.targ_pos.x_norm = center.x / self.cam.x_res # Normalized Position of Target | 0 = Leftmost Edge, 0.5 = Middle, 1 = Rightmost Edge
+        self.targ_pos.y_norm = center.y / self.cam.y_res # Normalized Position of Target | 0 = Top Edge, 0.5 = Middle, 1 = Bottom Edge
         # NOTE: The above normalization is based on the SIYI A8 Mini's 16:9 cropped resolution of 640x360. If the camera or resolution changes, this will need to be updated.
         
         # Calculate Target Position (Lat, Lon) and Publish
-        targ_pos, cam = calc_targ_dist(self.craft, targ_pos, cam)
-        craft, targ_pos = calc_targ_loc(self.craft, targ_pos)
+        self.targ_pos, self.cam = calc_targ_dist(self.craft, self.targ_pos, self.cam)
+        craft, self.targ_pos = calc_targ_loc(self.craft, self.targ_pos)
         msg_out = TargetPosition()
         msg_out.object_label = msg_in.detections[0].object_label
-        msg_out.longitude = targ_pos.lon
-        msg_out.latitude = targ_pos.lat
+        msg_out.longitude = self.targ_pos.lon
+        msg_out.latitude = self.targ_pos.lat
         self.publisher.publish(msg_out)
 
 
@@ -109,6 +111,8 @@ class cam:
     """
     fov_hor = radians(81) # Horizontal FOV of Camera (Radians)
     fov_vert = radians(51.3) # Vertical FOV of Camera (Radians)
+    x_res = 640 # Horizontal Resolution of Camera (Pixels)
+    y_res = 360 # Vertical Resolution of Camera (Pixels)
 
 
 """ Calculate Distance (m) Between Image and Target Center """
