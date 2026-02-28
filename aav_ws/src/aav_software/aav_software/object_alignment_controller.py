@@ -129,34 +129,40 @@ class ObjectAlignmentController(Node):
                     self.send_new_mode(ArduPilotMode.LAND)
 
                     self.state = OacState.LANDING
+                    self.get_logger().info(f"Switching mode to {self.state.name}")
                 else:
                     # TODO: Call payload drop script
                     self.time_marker = self.get_clock().now()
                     self.state = OacState.DROPPING_PAYLOAD
+                    self.get_logger().info(f"Switching state to {self.state.name}")
 
             case OacState.DROPPING_PAYLOAD:
                 if (self.get_clock().now() - self.time_marker > Duration(seconds=5)):
                     self.send_new_mode(ArduPilotMode.RTL)
 
                     self.state = OacState.RETURNING
+                    self.get_logger().info(f"Switching state to {self.state.name}")
 
             case OacState.LANDING:
                 if self.current_gps_position and self.current_gps_position.altitude < 0.5:
                     # TODO: Call package drop script
                     self.time_marker = self.get_clock().now()
                     self.state = OacState.DROPPING_PACKAGE
+                    self.get_logger().info(f"Switching state to {self.state.name}")
 
             case OacState.DROPPING_PACKAGE:
                 if (self.get_clock().now() - self.time_marker > Duration(seconds=5)):
                     self.send_new_mode(ArduPilotMode.TAKEOFF)
 
                     self.state = OacState.TAKING_OFF
+                    self.get_logger().info(f"Switching state to {self.state.name}")
 
             case OacState.TAKING_OFF:
                 if self.current_gps_position and self.current_gps_position.altitude > 30:
                     self.send_new_mode(ArduPilotMode.RTL)
 
                     self.state = OacState.RETURNING
+                    self.get_logger().info(f"Switching state to {self.state.name}")
 
             case OacState.RETURNING:
                 # Nothing to do for now
