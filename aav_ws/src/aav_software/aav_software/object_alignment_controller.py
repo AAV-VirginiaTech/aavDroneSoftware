@@ -139,21 +139,20 @@ class ObjectAlignmentController(Node):
 
 
 
-                    # NOTE: Changes Carter made
-                    # TODO: Issue with below line. We dont want it to immediatly switch modes and stop sending new positions. Right now it only sends position one time. We want it to keep allowing positions to be sent until the correct altitude is reached
+                    # TODO (FROM CARTER) : Issue with below line. We dont want it to immediatly switch modes and stop sending new positions. Right now it only sends position one time. We want it to keep allowing positions to be sent until the correct altitude is reached
                     #self.state = OacState.LANDING
 
 
 
                     self.get_logger().info(f"Switching mode to {self.state.name}")
                 else:
-
-
-
-                    # NOTE: Changes Carter made
                     # TODO: Call payload drop script
                     self.time_marker = self.get_clock().now()
-                     # TODO: Issue with below line. We dont want it to immediatly switch modes and stop sending new positions. Right now it only sends position one time. We want it to keep allowing positions to be sent until the correct altitude is reached
+                    
+                    
+                    
+                    
+                     # TODO (FROM CARTER):  Issue with below line. We dont want it to immediatly switch modes and stop sending new positions. Right now it only sends position one time. We want it to keep allowing positions to be sent until the correct altitude is reached
                     #self.state = OacState.DROPPING_PAYLOAD
 
 

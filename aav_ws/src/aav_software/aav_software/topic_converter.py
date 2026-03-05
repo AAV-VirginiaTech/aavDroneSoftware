@@ -137,6 +137,8 @@ class TopicConverter(Node):
         Check if enough time has passed since the last publish.
         Returns: (should_publish, updated_time)
         """
+        
+        # TODO (FROM CARTER): Adjust rate limit logic as needed. Right now its set to 1 publish per 5 seconds.
         current_time = time.time()
         if current_time - last_publish_time >= self.rate_limit_interval:
             return True, current_time
@@ -170,7 +172,7 @@ class TopicConverter(Node):
         gps_msg.longitude = msg.pose.position.longitude
         gps_msg.altitude = msg.pose.position.altitude - self.minimum_altitude
         # Extract yaw from quaternion orientation
-        #TODO: Check this logic is correct. Changing this code changes logic in manavs magic code!!!
+        #TODO (FROM CARTER): Check this logic is correct. Changing this code changes logic in manavs magic code!!!
         q = msg.pose.orientation
         yaw = math.atan2(2*(q.w*q.z + q.x*q.y), 1 - 2*(q.y**2 + q.z**2))
         gps_msg.yaw = yaw   

@@ -54,6 +54,16 @@ else
   echo "yolo_msgs already present, skipping fetch"
 fi
 
+# ---- UPDATE APT CACHE ----
+echo "Updating apt cache..."
+apt-get update
 
+# ---- INSTALL DEPENDENCIES ----
+echo "Installing ROS dependencies..."
+rosdep install --from-paths "${SRC}" --ignore-src -r -y
+
+# ---- BUILD WORKSPACE ----
+echo "Building workspace..."
+colcon build
 
 echo "=== AAV postCreate.sh complete ==="
