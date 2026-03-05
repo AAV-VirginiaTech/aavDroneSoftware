@@ -13,6 +13,9 @@ from yolo_msgs.msg import DetectionArray, Point2D
 from aav_msgs.msg import TargetPosition
 
 
+# TODO Figure out Differences in ChatGPT code
+# https://www.notion.so/vtaav/Manav-s-Code-fixing-31a623fcf7fe807cb35fc3184a78ee79?source=copy_link
+
 # Testing commands:
 """
 

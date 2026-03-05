@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 import rclpy
+import math
+import time
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from ardupilot_msgs.msg import Status
 from aav_msgs.msg import Mode
+from geographic_msgs.msg import GeoPoseStamped
 from ardupilot_msgs.msg import GlobalPosition 
 from aav_msgs.msg import DronePosition
 from aav_msgs.msg import LatLong
@@ -42,9 +46,9 @@ ros2 topic pub --once /AAV/current_mode aav_msgs/msg/Mode "{mode: 4}"
 ros2 topic pub --once /ap/cmd_gps_pose ardupilot_msgs/msg/GlobalPosition "{
   header: {frame_id: 'map'},
   coordinate_frame: 5,
-  latitude: -35.365822,
-  longitude: 149.163124,
-  altitude: 600.0
+  latitude: -35.363123,
+  longitude: 149.16586614,
+  altitude: 592.0
 }"
 
 # Test landing drone
@@ -100,79 +104,105 @@ class TopicConverter(Node):
         self.get_logger().info("Topic Converter has been launched")
 
         self.minimum_altitude = None
-        self.hardcoded_altitude = 8.0
+        self.hardcoded_altitude = 3.0
+        
+        # Rate limiting for new position callback (max 1 per 5 seconds)
+        self.last_new_gps_publish_time = 0.0
+        self.rate_limit_interval = 5.0
 
         # Subscriber(Mode): ArduPilot -> TC
         self.status_subscriber = self.create_subscription(Status, '/ap/status', self.status_callback, 10)
         # Publisher(Mode): TC -> AAV Software
         self.mode_publisher = self.create_publisher(Mode, '/AAV/current_mode', 10)
 
-        # Subscriber(GlobalPosition): ArduPilot -> TC
-        self.global_position_subscriber = self.create_subscription(GlobalPosition, '/ap/global_position', self.global_position_callback, 10)
+        # QoS profile for sensor data (BEST_EFFORT reliability)
+        sensor_qos = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=10
+        )
+
+        # Subscriber(GeoPoseStamped): ArduPilot -> TC
+        self.global_position_subscriber = self.create_subscription(GeoPoseStamped, '/ap/geopose/filtered', self.global_position_callback, sensor_qos)
         # Publisher(GlobalPosition): TC -> AAV Software
         self.gps_publisher = self.create_publisher(DronePosition, '/AAV/current_gps_position', 10)
 
         #Subscriber(NewPosition): AAV Software -> TC
         self.new_position_subscriber = self.create_subscription(LatLong, '/AAV/send_new_position', self.new_position_callback, 10)
         #Publisher(NewPosition): TC -> ArduPilot
-        self.new_gps_publisher = self.create_publisher(GlobalPosition, '/ap/set_gps_position', 10)
+        self.new_gps_publisher = self.create_publisher(GlobalPosition, '/ap/cmd_gps_pose', 10)
 
+    def check_rate_limit(self, last_publish_time: float) -> tuple:
+        """
+        Check if enough time has passed since the last publish.
+        Returns: (should_publish, updated_time)
+        """
+        current_time = time.time()
+        if current_time - last_publish_time >= self.rate_limit_interval:
+            return True, current_time
+        return False, last_publish_time
     
     def status_callback(self, msg: Status):
         ap_mode = ArduPilotMode(msg.mode)
 
-        self.current_mode = ap_mode 
-        self.get_logger().info(f"Received ArduPilot mode: {self.current_mode.name} ({self.current_mode.value})")
         
-        # TODO: Need to call takeoff mode from here. Check if mode is 29 and if so call the function. Just return after this point if mode is 29.
-        if self.current_mode == ArduPilotMode.TAKEOFF:
+        self.get_logger().info(f"Received ArduPilot mode: {ap_mode.name} ({ap_mode.value})")
+        
+        if ap_mode == ArduPilotMode.TAKEOFF:
             self.get_logger().info("TAKEOFF mode requested, initiating takeoff sequence")
             self.takeoff()
             return
 
         mode_msg = Mode()
-        mode_msg.mode = self.current_mode.value
+        mode_msg.mode = ap_mode.value
         
         self.mode_publisher.publish(mode_msg)
 
-    def global_position_callback(self, msg: GlobalPosition):
-        if self.minimum_altitude is None:
-            self.minimum_altitude = msg.altitude
-        elif msg.altitude < self.minimum_altitude:
-            self.minimum_altitude = msg.altitude
+    def global_position_callback(self, msg: GeoPoseStamped):
+     
+        if (self.minimum_altitude is None) or (self.minimum_altitude == 0.0):
+            self.minimum_altitude = msg.pose.position.altitude
+        elif msg.pose.position.altitude < self.minimum_altitude:
+            self.minimum_altitude = msg.pose.position.altitude
         
         gps_msg = DronePosition()
-        gps_msg.latitude = msg.latitude
-        gps_msg.longitude = msg.longitude
-        gps_msg.altitude = msg.altitude - self.minimum_altitude  # TODO: Subtract altitude from ardupilot from min altitude to get altitude relative to the ground
-        gps_msg.yaw = msg.yaw   
+        gps_msg.latitude = msg.pose.position.latitude
+        gps_msg.longitude = msg.pose.position.longitude
+        gps_msg.altitude = msg.pose.position.altitude - self.minimum_altitude
+        # Extract yaw from quaternion orientation
+        #TODO: Check this logic is correct. Changing this code changes logic in manavs magic code!!!
+        q = msg.pose.orientation
+        yaw = math.atan2(2*(q.w*q.z + q.x*q.y), 1 - 2*(q.y**2 + q.z**2))
+        gps_msg.yaw = yaw   
 
         self.gps_publisher.publish(gps_msg)
-        self.get_logger().info(f"Published GPS lat={gps_msg.latitude}, lon={gps_msg.longitude}, alt={gps_msg.altitude}, yaw={gps_msg.yaw}")
 
     def new_position_callback(self, msg: LatLong):
-        if self.current_mode != ArduPilotMode.GUIDED:
-            self.get_logger().warning("Current mode is not GUIDED. Cannot publish new GPS position to ArduPilot.")
-            return
-        
-        #TODO: The if statement below should prob should be moved to global_position_callback. We want this to update when we get a new location from ardupilot, not when yolo detects something.
-        #TODO: Just use value directly from ardupilot (once moved) instead of current_altitude variable.
-        #TODO: Add check for minimum_altitude being not None before comparing them. If minimum altitude is None, then we can just set it to the current altitude. This way we can avoid issues with minimum_altitude not being initialized yet.
   
+        
         new_gps_msg = GlobalPosition()
+
+        new_gps_msg.header.frame_id = "map"
+
+        new_gps_msg.coordinate_frame = 5  # GLOBAL (absolute altitude)
+
         new_gps_msg.latitude = msg.latitude
         new_gps_msg.longitude = msg.longitude
 
+   
+
         if self.minimum_altitude is not None:
             new_gps_msg.altitude = self.hardcoded_altitude + self.minimum_altitude
+
+        
+        
+        # Rate limit new GPS position publishing
+        should_publish, self.last_new_gps_publish_time = self.check_rate_limit(self.last_new_gps_publish_time)
+        if should_publish:
+            self.new_gps_publisher.publish(new_gps_msg)
+            self.get_logger().info(f"Published new GPS position to ArduPilot: lat={new_gps_msg.latitude}, lon={new_gps_msg.longitude}, alt={new_gps_msg.altitude}, yaw={new_gps_msg.yaw}")
         else:
-            new_gps_msg.altitude = self.hardcoded_altitude
-
-        new_gps_msg.yaw = 0.0  # Default yaw, can be modified as needed
-
-        self.new_gps_publisher.publish(new_gps_msg)
-        self.get_logger().info(f"Published new GPS position to ArduPilot: lat={new_gps_msg.latitude}, lon={new_gps_msg.longitude}, alt={new_gps_msg.altitude}, yaw={new_gps_msg.yaw}")
-
+            self.get_logger().warning(f"New GPS position rate limited")
 
 
     def takeoff(self, takeoff_altitude: float = 30.0) -> bool:
@@ -221,7 +251,6 @@ class TopicConverter(Node):
                 self.get_logger().error('Takeoff service not available')
                 return False
             tk_req = Takeoff.Request()
-            # TODO: Need to add minimum altitude to this hardcoded altitude to get the actual altitude to send to ardupilot
             if self.minimum_altitude is not None:
                 tk_req.alt = float(takeoff_altitude) + self.minimum_altitude
             else:
@@ -234,7 +263,6 @@ class TopicConverter(Node):
             self.get_logger().info(f'Takeoff initiated to {takeoff_altitude} meters')
             return True
         finally:
-            # TODO: We dont want topic converter to shut down after takeoff. Maybe just add log message saying takeoff is done or something.
             self.get_logger().info("Takeoff sequence complete")
    
 
