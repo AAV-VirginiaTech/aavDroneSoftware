@@ -137,28 +137,13 @@ class ObjectAlignmentController(Node):
                 elif self.doing_package_delivery_mission:
                     self.send_new_mode(ArduPilotMode.LAND)
 
-
-
-                    # TODO (FROM CARTER) : Issue with below line. We dont want it to immediatly switch modes and stop sending new positions. Right now it only sends position one time. We want it to keep allowing positions to be sent until the correct altitude is reached
-                    #self.state = OacState.LANDING
-
-
-
+                    self.state = OacState.LANDING
                     self.get_logger().info(f"Switching mode to {self.state.name}")
                 else:
                     # TODO: Call payload drop script
                     self.time_marker = self.get_clock().now()
-                    
-                    
-                    
-                    
-                     # TODO (FROM CARTER):  Issue with below line. We dont want it to immediatly switch modes and stop sending new positions. Right now it only sends position one time. We want it to keep allowing positions to be sent until the correct altitude is reached
-                    #self.state = OacState.DROPPING_PAYLOAD
 
-
-
-
-
+                    self.state = OacState.DROPPING_PAYLOAD
                     self.get_logger().info(f"Switching state to {self.state.name}")
 
             case OacState.DROPPING_PAYLOAD:
