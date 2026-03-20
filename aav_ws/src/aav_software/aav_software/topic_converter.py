@@ -140,7 +140,7 @@ class TopicConverter(Node):
         Returns: (should_publish, updated_time)
         """
         
-        # TODO (FROM CARTER): Adjust rate limit logic as needed. Right now its set to 1 publish per 5 seconds.
+       
         current_time = time.time()
         if current_time - last_publish_time >= self.rate_limit_interval:
             return True, current_time
@@ -155,12 +155,7 @@ class TopicConverter(Node):
             else:
                 self.get_logger().error("Takeoff sequence failed")
         else:
-            self.get_logger().info(f"Received mode set command from AAV Software: {msg.mode}")
-            # Publish the requested mode to ArduPilot
-            mode_msg = Mode()
-            mode_msg.mode = msg.mode
-            self.mode_publisher.publish()
-            self.get_logger().info(f"Published mode {msg.mode} to ArduPilot")
+            self.call_mode_switch(msg.mode)
 
     def status_callback(self, msg: Status):
         ap_mode = ArduPilotMode(msg.mode)
@@ -185,7 +180,7 @@ class TopicConverter(Node):
         gps_msg.longitude = msg.pose.position.longitude
         gps_msg.altitude = msg.pose.position.altitude - self.minimum_altitude
         # Extract yaw from quaternion orientation
-        #TODO (FROM CARTER): Check this logic is correct. Changing this code changes logic in manavs magic code!!!
+    
         q = msg.pose.orientation
         yaw = math.atan2(2*(q.w*q.z + q.x*q.y), 1 - 2*(q.y**2 + q.z**2))
         gps_msg.yaw = yaw   
@@ -218,6 +213,51 @@ class TopicConverter(Node):
             self.get_logger().info(f"Published new GPS position to ArduPilot: lat={new_gps_msg.latitude}, lon={new_gps_msg.longitude}, alt={new_gps_msg.altitude}, yaw={new_gps_msg.yaw}")
         else:
             self.get_logger().warning(f"New GPS position rate limited")
+
+    
+
+
+
+
+
+def call_mode_switch(mode: int = 4) -> bool:
+    rclpy.init()
+    node = Node('mode_switch_client')
+    client = node.create_client(ModeSwitch, '/ap/mode_switch')
+
+    if not client.wait_for_service(timeout_sec=5.0):
+        node.get_logger().error('Service /ap/mode_switch not available')
+        node.destroy_node()
+        rclpy.shutdown()
+        return False
+
+    req = ModeSwitch.Request()
+    req.mode = mode
+    future = client.call_async(req)
+
+    rclpy.spin_until_future_complete(node, future, timeout_sec=5.0)
+
+    if future.result() is not None:
+        node.get_logger().info(f'Mode switch completed: {future.result()}')
+        success = True
+    else:
+        node.get_logger().error('Mode switch service call failed')
+        success = False
+
+
+    return success
+
+
+
+
+
+
+
+
+
+
+
+
 
 
     def takeoff(self, takeoff_altitude: float = 30.0) -> bool:
