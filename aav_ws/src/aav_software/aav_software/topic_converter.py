@@ -260,9 +260,6 @@ class TopicConverter(Node):
             mode_req.mode = 4 # GUIDED mode value
             mode_fut = mode_client.call_async(mode_req)
             rclpy.spin_until_future_complete(self, mode_fut, timeout_sec=5.0)
-            if mode_fut.result() is None:
-                self.get_logger().error(f"Mode switch service call failed")
-                return False
             self.get_logger().info(f"Switched to GUIDED mode")
 
 
