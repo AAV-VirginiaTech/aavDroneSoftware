@@ -272,9 +272,6 @@ class TopicConverter(Node):
             arm_req.arm = True
             arm_fut = arm_client.call_async(arm_req)
             rclpy.spin_until_future_complete(self, arm_fut, timeout_sec=5.0)
-            if arm_fut.result() is None:
-                self.get_logger().error(f"Arm call failed")
-                return False
             self.get_logger().info("Motors armed")
        
             # 3) Publish a new GlobalPosition with desired takeoff altitude
@@ -289,9 +286,6 @@ class TopicConverter(Node):
                 tk_req.alt = float(takeoff_altitude)
             tk_fut = takeoff_client.call_async(tk_req)
             rclpy.spin_until_future_complete(self, tk_fut, timeout_sec=5.0)
-            if tk_fut.result() is None:
-                self.get_logger().error("Takeoff call failed")
-                return False
             self.get_logger().info(f'Takeoff initiated to {takeoff_altitude} meters')
             return True
         finally:
