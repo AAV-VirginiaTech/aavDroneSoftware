@@ -214,31 +214,31 @@ class TopicConverter(Node):
         else:
             self.get_logger().warning(f"New GPS position rate limited")
 
-    def call_mode_switch(mode: int = 4) -> bool:
-        rclpy.init()
-        node = Node('mode_switch_client')
-        client = node.create_client(ModeSwitch, '/ap/mode_switch')
+    def call_mode_switch(self, mode: int = 4) -> bool:
+        try:
+            client = self.create_client(ModeSwitch, '/ap/mode_switch')
 
-        if not client.wait_for_service(timeout_sec=5.0):
-            node.get_logger().error('Service /ap/mode_switch not available')
-            node.destroy_node()
-            rclpy.shutdown()
+            if not client.wait_for_service(timeout_sec=5.0):
+                self.get_logger().error('Service /ap/mode_switch not available')
+                return False
+
+            req = ModeSwitch.Request()
+            req.mode = mode
+            future = client.call_async(req)
+
+            rclpy.spin_until_future_complete(self, future, timeout_sec=5.0)
+
+            if future.result() is not None:
+                self.get_logger().info(f'Mode switch completed: {future.result()}')
+                success = True
+            else:
+                self.get_logger().error('Mode switch service call failed')
+                success = False
+
+            return success
+        except Exception as e:
+            self.get_logger().error(f'Mode switch failed with exception: {e}')
             return False
-
-        req = ModeSwitch.Request()
-        req.mode = mode
-        future = client.call_async(req)
-
-        rclpy.spin_until_future_complete(node, future, timeout_sec=5.0)
-
-        if future.result() is not None:
-            node.get_logger().info(f'Mode switch completed: {future.result()}')
-            success = True
-        else:
-            node.get_logger().error('Mode switch service call failed')
-            success = False
-
-        return success
 
     def takeoff(self, takeoff_altitude: float = 30.0) -> bool:
         """
