@@ -132,6 +132,8 @@ class TopicConverter(Node):
         #Publisher(NewPosition): TC -> ArduPilot
         self.new_gps_publisher = self.create_publisher(GlobalPosition, '/ap/cmd_gps_pose', 10)
 
+        self.set_mode = self.create_subscription(Mode, '/AAV/set_mode', self.set_mode_callback, 10)
+
     def check_rate_limit(self, last_publish_time: float) -> tuple:
         """
         Check if enough time has passed since the last publish.
@@ -144,16 +146,27 @@ class TopicConverter(Node):
             return True, current_time
         return False, last_publish_time
     
+    def set_mode_callback(self, msg: Mode):
+        if msg.mode == ArduPilotMode.TAKEOFF.value:
+            self.get_logger().info("Received takeoff command from AAV Software")
+            success = self.takeoff(takeoff_altitude=30.0)
+            if success:
+                self.get_logger().info("Takeoff sequence executed successfully")
+            else:
+                self.get_logger().error("Takeoff sequence failed")
+        else:
+            self.get_logger().info(f"Received mode set command from AAV Software: {msg.mode}")
+            # Publish the requested mode to ArduPilot
+            mode_msg = Mode()
+            mode_msg.mode = msg.mode
+            self.mode_publisher.publish()
+            self.get_logger().info(f"Published mode {msg.mode} to ArduPilot")
+
     def status_callback(self, msg: Status):
         ap_mode = ArduPilotMode(msg.mode)
 
         
         self.get_logger().info(f"Received ArduPilot mode: {ap_mode.name} ({ap_mode.value})")
-        
-        if ap_mode == ArduPilotMode.TAKEOFF:
-            self.get_logger().info("TAKEOFF mode requested, initiating takeoff sequence")
-            self.takeoff()
-            return
 
         mode_msg = Mode()
         mode_msg.mode = ap_mode.value
