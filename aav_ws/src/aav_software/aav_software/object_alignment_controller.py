@@ -14,6 +14,9 @@ from enum import Enum
 
 # TODO: Interface with substructure control code
 
+# TODO: (FROM CARTER) Figure out issues in this notion link below
+# https://www.notion.so/vtaav/Object-Alignment-Issue-329623fcf7fe80a6bf73faff6ec727d3?source=copy_link
+
 # Testing commands:
 """
 # Launch Object Alignment Controller
