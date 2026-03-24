@@ -14,6 +14,8 @@ from enum import Enum
 
 # TODO: Interface with substructure control code
 
+# TODO: (CARTER) Need to change from sending RTL mode to sending AUTO mode
+
 # Testing commands:
 """
 # Launch Object Alignment Controller
