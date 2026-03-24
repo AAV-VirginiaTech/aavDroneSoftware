@@ -16,6 +16,7 @@ from enum import Enum
 
 # TODO: (CARTER) Need to change from sending RTL mode to sending AUTO mode
 
+
 # Testing commands:
 """
 # Launch Object Alignment Controller
@@ -107,6 +108,7 @@ class ObjectAlignmentController(Node):
     def target_position_callback(self, target_position: TargetPosition):
         self.get_logger().info(f"Recieved new target position: {target_position}")
         if (self.current_mode != ArduPilotMode.GUIDED):
+            # TODO: (CARTER) Need to change to guided mode if not in AUTO mode when we detect something new
             self.get_logger().info("Not guided. Doing nothing.")
             return
 
