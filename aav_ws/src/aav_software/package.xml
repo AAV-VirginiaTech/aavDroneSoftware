@@ -4,7 +4,7 @@
   <name>aav_software</name>
   <version>0.0.0</version>
   <description>Software for AAV Drone</description>
-  <maintainer email="carterhawkins@vt.edu">Carter</maintainer>
+  <maintainer email="carterhawkins@vt.edu">Carter Hawkins</maintainer>
   <license>GPL-3.0</license>
 
   <depend>rclpy</depend>
