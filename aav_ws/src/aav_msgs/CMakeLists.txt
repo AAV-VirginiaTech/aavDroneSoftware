@@ -15,7 +15,7 @@ find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Mode.msg"
-  "msg/LatLong.msg"
+  "msg/NewDronePosition.msg"
   "msg/TargetPosition.msg"
   "msg/DronePosition.msg"
  )

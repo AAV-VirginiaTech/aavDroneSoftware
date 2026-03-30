@@ -4,7 +4,7 @@ from rclpy.node import Node
 from rclpy.clock import Duration
 from aav_msgs.msg import Mode
 from aav_msgs.msg import TargetPosition
-from aav_msgs.msg import LatLong
+from aav_msgs.msg import NewDronePosition
 from aav_msgs.msg import DronePosition
 from .topic_converter import ArduPilotMode
 from enum import Enum
@@ -70,6 +70,7 @@ class ObjectAlignmentController(Node):
     SUBSTRUCTURE_ACTION_DURATION = Duration(seconds=5)
     LANDING_THRESHOLD_ALTITUDE = 0.5
     TAKEOFF_THRESHOLD_ALTITUDE = 30
+    HARDCODED_DROP_ALTITUDE = 3.0
 
     def __init__(self):
         super().__init__("object_alignment_controller")
@@ -78,7 +79,7 @@ class ObjectAlignmentController(Node):
         self.target_position_sub = self.create_subscription(TargetPosition, "/AAV/estimated_target_position", self.target_position_callback, 10)
         self.current_drone_position_sub = self.create_subscription(DronePosition, "AAV/current_gps_position", self.gps_position_callback, 10)
 
-        self.new_position_pub = self.create_publisher(LatLong, "/AAV/send_new_position", 10)
+        self.new_position_pub = self.create_publisher(NewDronePosition, "/AAV/send_new_position", 10)
         self.new_mode_pub = self.create_publisher(Mode, "/AAV/set_mode", 10)
 
         self.state_machine_timer = self.create_timer(0.5, self.update_state_machine)
@@ -117,9 +118,10 @@ class ObjectAlignmentController(Node):
             return
 
         if (self.state == OacState.SEEKING):
-            new_position = LatLong()
+            new_position = NewDronePosition()
             new_position.latitude = target_position.latitude
             new_position.longitude = target_position.longitude
+            new_position.altitude = ObjectAlignmentController.HARDCODED_DROP_ALTITUDE
 
             self.last_target_position = new_position
 

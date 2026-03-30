@@ -9,7 +9,7 @@ from aav_msgs.msg import Mode
 from geographic_msgs.msg import GeoPoseStamped
 from ardupilot_msgs.msg import GlobalPosition 
 from aav_msgs.msg import DronePosition
-from aav_msgs.msg import LatLong
+from aav_msgs.msg import NewDronePosition
 from enum import Enum, IntEnum
 from ardupilot_msgs.srv import ModeSwitch
 from ardupilot_msgs.srv import ArmMotors
@@ -20,9 +20,10 @@ from ardupilot_msgs.srv import Takeoff
 #Testing commands:
 """
 # Send new position
-ros2 topic pub --once /AAV/send_new_position aav_msgs/msg/LatLong "{
+ros2 topic pub --once /AAV/send_new_position aav_msgs/msg/NewDronePosition "{
   latitude: 37.2295,
-  longitude: -80.4138
+  longitude: -80.4138,
+  altitude: 20.0
 }"
 
 
@@ -104,7 +105,6 @@ class TopicConverter(Node):
         self.get_logger().info("Topic Converter has been launched")
 
         self.minimum_altitude = None
-        self.hardcoded_altitude = 3.0
         
         # Rate limiting for new position callback (max 1 per 5 seconds)
         self.last_new_gps_publish_time = 0.0
@@ -128,7 +128,7 @@ class TopicConverter(Node):
         self.gps_publisher = self.create_publisher(DronePosition, '/AAV/current_gps_position', 10)
 
         #Subscriber(NewPosition): AAV Software -> TC
-        self.new_position_subscriber = self.create_subscription(LatLong, '/AAV/send_new_position', self.new_position_callback, 10)
+        self.new_position_subscriber = self.create_subscription(NewDronePosition, '/AAV/send_new_position', self.new_position_callback, 10)
         #Publisher(NewPosition): TC -> ArduPilot
         self.new_gps_publisher = self.create_publisher(GlobalPosition, '/ap/cmd_gps_pose', 10)
 
@@ -187,7 +187,7 @@ class TopicConverter(Node):
 
         self.gps_publisher.publish(gps_msg)
 
-    def new_position_callback(self, msg: LatLong):
+    def new_position_callback(self, msg: NewDronePosition):
   
         
         new_gps_msg = GlobalPosition()
@@ -202,7 +202,7 @@ class TopicConverter(Node):
    
 
         if self.minimum_altitude is not None:
-            new_gps_msg.altitude = self.hardcoded_altitude + self.minimum_altitude
+            new_gps_msg.altitude = msg.altitude + self.minimum_altitude
 
         
         
