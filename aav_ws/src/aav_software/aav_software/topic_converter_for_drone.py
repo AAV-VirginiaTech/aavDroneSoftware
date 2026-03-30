@@ -17,6 +17,10 @@ from ardupilot_msgs.srv import Takeoff
 from .topic_converter_for_simulation import ArduPilotMode
 
 
+# TODO Update this file to work with MAVROS instead of ardupilot for the actual drone
+# Resource: https://www.notion.so/vtaav/Ardupilot-to-MavROS-topic-conversions-32e623fcf7fe808495a9fc30ba85e564?source=copy_link
+
+
 
 class TopicConverter(Node):
     def __init__(self):
