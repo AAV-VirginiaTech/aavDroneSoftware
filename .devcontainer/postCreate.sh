@@ -9,6 +9,7 @@ WS=/workspaces/aavDroneSoftware/aav_ws
 SRC=${WS}/src
 PKG=${SRC}/ardupilot_msgs
 YOLO_PKG=${SRC}/yolo_msgs
+MAVROS_PKG=${SRC}/mavros_msgs
 
 # ---- ROS ENV ----
 source /opt/ros/${ROS_DISTRO}/setup.bash
@@ -52,6 +53,25 @@ if [ ! -d "${YOLO_PKG}" ]; then
   rm -rf "$tmp"
 else
   echo "yolo_msgs already present, skipping fetch"
+fi
+
+# ---- FETCH mavros_msgs ONLY (git sparse-checkout) ----
+if [ ! -d "${MAVROS_PKG}" ]; then
+  echo "Fetching mavros_msgs via sparse-checkout..."
+  tmp=/tmp/mavros_sparse
+  rm -rf "$tmp"
+  git clone --filter=blob:none --no-checkout https://github.com/mavlink/mavros.git "$tmp"
+  cd "$tmp"
+  git sparse-checkout init --cone
+  git sparse-checkout set mavros_msgs
+  git checkout ros2
+
+  mkdir -p "${SRC}"
+  cp -a mavros_msgs "${MAVROS_PKG}"
+  cd "$WS"  # return before removing the temp dir
+  rm -rf "$tmp"
+else
+  echo "mavros_msgs already present, skipping fetch"
 fi
 
 # ---- UPDATE APT CACHE ----

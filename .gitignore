@@ -45,6 +45,7 @@ aav_ws/src/yolo_ros/
 
 
 aav_ws/src/ardupilot_msgs/
+aav_ws/src/mavros_msgs/
 aav_ws/src/yolo_msgs/
 eeprom.bin
 mav.parm

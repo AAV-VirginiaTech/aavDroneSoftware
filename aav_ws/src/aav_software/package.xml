@@ -10,6 +10,7 @@
   <depend>rclpy</depend>
   <depend>aav_msgs</depend>
   <depend>ardupilot_msgs</depend>
+  <depend>mavros_msgs</depend>
   <depend>yolo_msgs</depend>
   <depend>geographic_msgs</depend>
 
