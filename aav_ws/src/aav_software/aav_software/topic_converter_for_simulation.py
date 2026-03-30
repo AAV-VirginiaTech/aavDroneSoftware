@@ -101,7 +101,7 @@ class ArduPilotMode(IntEnum):
 
 class TopicConverter(Node):
     def __init__(self):
-        super().__init__("topic_converter")
+        super().__init__("topic_converter_for_simulation")
         self.get_logger().info("Topic Converter has been launched")
 
         self.minimum_altitude = None

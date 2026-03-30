@@ -6,7 +6,7 @@ from aav_msgs.msg import Mode
 from aav_msgs.msg import TargetPosition
 from aav_msgs.msg import NewDronePosition
 from aav_msgs.msg import DronePosition
-from .topic_converter import ArduPilotMode
+from .topic_converter_for_simulation import ArduPilotMode
 from enum import Enum
 
 # Reference Pseudocode:

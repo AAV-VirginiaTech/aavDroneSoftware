@@ -23,7 +23,7 @@ def generate_launch_description():
     
     topic_converter = Node(
         package="aav_software",
-        executable="topic_converter",
+        executable="topic_converter_for_drone",
     )
 
     ld.add_action(location_logger)
