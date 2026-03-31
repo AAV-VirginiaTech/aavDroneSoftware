@@ -66,7 +66,6 @@ class OacState(Enum):
 
 
 class ObjectAlignmentController(Node):
-    PROXIMITY_THRESHOLD_ALTITUDE = 8.0
     SUBSTRUCTURE_ACTION_DURATION = Duration(seconds=5)
     LANDING_THRESHOLD_ALTITUDE = 0.5
     TAKEOFF_THRESHOLD_ALTITUDE = 30
@@ -136,7 +135,7 @@ class ObjectAlignmentController(Node):
             case OacState.SEEKING:
                 if (not self.last_target_position or
                     not self.current_gps_position or
-                    self.current_gps_position.altitude > ObjectAlignmentController.PROXIMITY_THRESHOLD_ALTITUDE):
+                    self.current_gps_position.altitude > ObjectAlignmentController.HARDCODED_DROP_ALTITUDE):
                     # TODO: Add more detailed proximity checks
                     # keep seeking
                     pass
