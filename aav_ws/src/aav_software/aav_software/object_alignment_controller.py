@@ -16,6 +16,8 @@ from enum import Enum
 
 # TODO: (CARTER) Need to change from sending RTL mode to sending AUTO mode
 
+# TODO: (CARTER) Prevent drone from lowering altitude until it is directly above the target.
+
 
 # Testing commands:
 """
