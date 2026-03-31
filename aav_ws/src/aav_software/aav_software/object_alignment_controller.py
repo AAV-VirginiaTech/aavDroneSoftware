@@ -67,9 +67,9 @@ class OacState(Enum):
 
 class ObjectAlignmentController(Node):
     SUBSTRUCTURE_ACTION_DURATION = Duration(seconds=5)
-    LANDING_THRESHOLD_ALTITUDE = 0.5
-    TAKEOFF_THRESHOLD_ALTITUDE = 30
-    HARDCODED_DROP_ALTITUDE = 3.0
+    LANDING_THRESHOLD_ALTITUDE: float = 0.5
+    TAKEOFF_THRESHOLD_ALTITUDE: float = 30.0
+    HARDCODED_DROP_ALTITUDE: float = 3.0
 
     def __init__(self):
         super().__init__("object_alignment_controller")
@@ -120,7 +120,7 @@ class ObjectAlignmentController(Node):
             new_position = NewDronePosition()
             new_position.latitude = target_position.latitude
             new_position.longitude = target_position.longitude
-            new_position.altitude = ObjectAlignmentController.HARDCODED_DROP_ALTITUDE
+            new_position.altitude = float(ObjectAlignmentController.HARDCODED_DROP_ALTITUDE)
 
             self.last_target_position = new_position
 
@@ -135,7 +135,7 @@ class ObjectAlignmentController(Node):
             case OacState.SEEKING:
                 if (not self.last_target_position or
                     not self.current_gps_position or
-                    self.current_gps_position.altitude > ObjectAlignmentController.HARDCODED_DROP_ALTITUDE):
+                    float(self.current_gps_position.altitude) > float(ObjectAlignmentController.HARDCODED_DROP_ALTITUDE)):
                     # TODO: Add more detailed proximity checks
                     # keep seeking
                     pass
@@ -159,7 +159,7 @@ class ObjectAlignmentController(Node):
                     self.get_logger().info(f"Switching state to {self.state.name}")
 
             case OacState.LANDING:
-                if self.current_gps_position and self.current_gps_position.altitude < ObjectAlignmentController.LANDING_THRESHOLD_ALTITUDE:
+                if self.current_gps_position and float(self.current_gps_position.altitude) < float(ObjectAlignmentController.LANDING_THRESHOLD_ALTITUDE):
                     # TODO: Call package drop script
                     self.time_marker = self.get_clock().now()
                     self.state = OacState.DROPPING_PACKAGE
@@ -173,7 +173,7 @@ class ObjectAlignmentController(Node):
                     self.get_logger().info(f"Switching state to {self.state.name}")
 
             case OacState.TAKING_OFF:
-                if self.current_gps_position and self.current_gps_position.altitude > ObjectAlignmentController.TAKEOFF_THRESHOLD_ALTITUDE:
+                if self.current_gps_position and float(self.current_gps_position.altitude) > float(ObjectAlignmentController.TAKEOFF_THRESHOLD_ALTITUDE):
                     self.send_new_mode(ArduPilotMode.RTL)
 
                     self.state = OacState.RETURNING
