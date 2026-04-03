@@ -110,7 +110,7 @@ class ObjectAlignmentController(Node):
             return
 
         if (self.current_mode != ArduPilotMode.GUIDED):
-            self.new_mode_pub.publish(ArduPilotMode.GUIDED)
+            self.send_new_mode(ArduPilotMode.GUIDED)
             return
 
         if (target_position.object_label != "bullseye"):
