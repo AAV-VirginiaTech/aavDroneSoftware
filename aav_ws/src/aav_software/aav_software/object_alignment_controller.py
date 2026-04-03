@@ -136,7 +136,7 @@ class ObjectAlignmentController(Node):
             new_position.latitude = target_position.latitude
             new_position.longitude = target_position.longitude
 
-            new_position.altitude = float(self.descend_target_altitude)
+            new_position.altitude = self.HARDCODED_DROP_ALTITUDE
 
     def gps_position_callback(self, gps_position: DronePosition):
         self.get_logger().info(f"Recieved new gps position: {gps_position}")
@@ -151,13 +151,11 @@ class ObjectAlignmentController(Node):
                     self.time_marker = self.get_clock().now()
                 elif self.get_clock().now() - self.time_marker > ObjectAlignmentController.SEEK_ALIGNMENT_DURATION:
                     # if the timer has expired (we saw our first target 60 seconds ago), start descending
-                    self.descend_target_altitude = self.current_gps_position.altitude
+                  
 
                     self.state = OacState.DESCENDING
                     self.get_logger().info(f"Switching state to {self.state.name}")
             case OacState.DESCENDING:
-                # periodically decrease the target altitude (0.5m every second)
-                self.descend_target_altitude = max(self.descend_target_altitude - 0.5, ObjectAlignmentController.HARDCODED_DROP_ALTITUDE)
 
                 # within .25m of drop altitude, either start landing or run payload drop
                 if abs(self.current_gps_position.altitude - ObjectAlignmentController.HARDCODED_DROP_ALTITUDE) < 0.25:
