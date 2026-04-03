@@ -14,8 +14,6 @@ from enum import Enum
 
 # TODO: Interface with substructure control code
 
-# TODO: (CARTER) Need to change from sending RTL mode to sending AUTO mode
-
 # TODO: (CARTER) Prevent drone from lowering altitude until it is directly above the target.
 
 
@@ -59,16 +57,18 @@ class OacState(Enum):
     """
     Impliments the state machine diagram shown on the Object Alignment Controller Miro board
     """
-    SEEKING = 0             # Monitoring for new targets; sending their positions
-    DROPPING_PAYLOAD = 1    # Waiting for payload drop to finish
-    LANDING = 2             # In landing mode; waiting to reach ground
-    DROPPING_PACKAGE = 3    # Waiting for package drop to finish
-    TAKING_OFF = 4          # In takeoff mode; waiting to reach threshold altitude
-    RETURNING = 5           # In RTL mode; done
+    SEEKING = 0             # Monitoring for new targets; sending their positions while maintaining altitude
+    DESCENDING = 1          # Sending target posititons while slowly lowering altitude
+    DROPPING_PAYLOAD = 2    # Waiting for payload drop to finish
+    LANDING = 3             # In landing mode; waiting to reach ground
+    DROPPING_PACKAGE = 4    # Waiting for package drop to finish
+    TAKING_OFF = 5          # In takeoff mode; waiting to reach threshold altitude
+    RETURNING = 6           # Back in AUTO mode; done
 
 
 class ObjectAlignmentController(Node):
     SUBSTRUCTURE_ACTION_DURATION = Duration(seconds=5)
+    SEEK_ALIGNMENT_DURATION = Duration(seconds=60)
     LANDING_THRESHOLD_ALTITUDE: float = 0.5
     TAKEOFF_THRESHOLD_ALTITUDE: float = 30.0
     HARDCODED_DROP_ALTITUDE: float = 3.0
@@ -95,6 +95,8 @@ class ObjectAlignmentController(Node):
         self.state = OacState.SEEKING
         self.time_marker = self.get_clock().now()
 
+        self.descend_target_altitude = -10000
+
         self.get_logger().info("Object Alignment Controller has been launched")
 
     def send_new_mode(self, mode: ArduPilotMode):
@@ -108,25 +110,37 @@ class ObjectAlignmentController(Node):
         self.current_mode = ArduPilotMode(mode.mode)
 
     def target_position_callback(self, target_position: TargetPosition):
-        self.get_logger().info(f"Recieved new target position: {target_position}")
+        if self.state == OacState.RETURNING:
+            return
+
         if (self.current_mode != ArduPilotMode.GUIDED):
-            # TODO: (CARTER) Need to change to guided mode if not in AUTO mode when we detect something new
-            self.get_logger().info("Not guided. Doing nothing.")
+            self.new_mode_pub.publish(ArduPilotMode.GUIDED)
             return
 
         if (target_position.object_label != "bullseye"):
             self.get_logger().info("The detected object is not a bullseye. Ignoring.")
             return
 
+        # if this is the first target we have seen, reset the timer
+        if not self.last_target_position:
+            self.time_marker = self.get_clock().now()
+
         if (self.state == OacState.SEEKING):
             new_position = NewDronePosition()
             new_position.latitude = target_position.latitude
             new_position.longitude = target_position.longitude
-            new_position.altitude = float(ObjectAlignmentController.HARDCODED_DROP_ALTITUDE)
+            
+            new_position.altitude = float(self.current_gps_position.altitude)
 
             self.last_target_position = new_position
 
             self.new_position_pub.publish(new_position)
+        elif self.state == OacState.DESCENDING:
+            new_position = NewDronePosition()
+            new_position.latitude = target_position.latitude
+            new_position.longitude = target_position.longitude
+
+            new_position.altitude = float(self.descend_target_altitude)
 
     def gps_position_callback(self, gps_position: DronePosition):
         self.get_logger().info(f"Recieved new gps position: {gps_position}")
@@ -136,26 +150,36 @@ class ObjectAlignmentController(Node):
         match self.state:
             case OacState.SEEKING:
                 if (not self.last_target_position or
-                    not self.current_gps_position or
-                    float(self.current_gps_position.altitude) > float(ObjectAlignmentController.HARDCODED_DROP_ALTITUDE)):
-                    # TODO: Add more detailed proximity checks
-                    # keep seeking
-                    pass
-                elif self.doing_package_delivery_mission:
-                    self.send_new_mode(ArduPilotMode.LAND)
-
-                    self.state = OacState.LANDING
-                    self.get_logger().info(f"Switching mode to {self.state.name}")
-                else:
-                    # TODO: Call payload drop script
+                    not self.current_gps_position):
+                    # if we have seen no targets, or the gps is not connected, reset the timer
                     self.time_marker = self.get_clock().now()
+                elif self.get_clock().now() - self.time_marker > ObjectAlignmentController.SEEK_ALIGNMENT_DURATION:
+                    # if the timer has expired (we saw our first target 60 seconds ago), start descending
+                    self.descend_target_altitude = self.current_gps_position.altitude
 
-                    self.state = OacState.DROPPING_PAYLOAD
+                    self.state = OacState.DESCENDING
                     self.get_logger().info(f"Switching state to {self.state.name}")
+            case OacState.DESCENDING
+                # periodically decrease the target altitude (0.5m every second)
+                self.descend_target_altitude = max(self.descend_target_altitude - 0.5, ObjectAlignmentController.HARDCODED_DROP_ALTITUDE)
+
+                # within .25m of drop altitude, either start landing or run payload drop
+                if abs(self.gps_position.altitude - ObjectAlignmentController.HARDCODED_DROP_ALTITUDE) < 0.25:
+                    if self.doing_package_delivery_mission:
+                        self.send_new_mode(ArduPilotMode.LAND)
+
+                        self.state = OacState.LANDING
+                        self.get_logger().info(f"Switching mode to {self.state.name}")
+                    else:
+                        # TODO: Call payload drop script
+                        self.time_marker = self.get_clock().now()
+
+                        self.state = OacState.DROPPING_PAYLOAD
+                        self.get_logger().info(f"Switching state to {self.state.name}")
 
             case OacState.DROPPING_PAYLOAD:
                 if self.get_clock().now() - self.time_marker > ObjectAlignmentController.SUBSTRUCTURE_ACTION_DURATION:
-                    self.send_new_mode(ArduPilotMode.RTL)
+                    self.send_new_mode(ArduPilotMode.AUTO)
 
                     self.state = OacState.RETURNING
                     self.get_logger().info(f"Switching state to {self.state.name}")
@@ -176,7 +200,7 @@ class ObjectAlignmentController(Node):
 
             case OacState.TAKING_OFF:
                 if self.current_gps_position and float(self.current_gps_position.altitude) > float(ObjectAlignmentController.TAKEOFF_THRESHOLD_ALTITUDE):
-                    self.send_new_mode(ArduPilotMode.RTL)
+                    self.send_new_mode(ArduPilotMode.AUTO)
 
                     self.state = OacState.RETURNING
                     self.get_logger().info(f"Switching state to {self.state.name}")
