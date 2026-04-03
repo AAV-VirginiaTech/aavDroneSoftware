@@ -64,7 +64,7 @@ class OacState(Enum):
 
 class ObjectAlignmentController(Node):
     SUBSTRUCTURE_ACTION_DURATION = Duration(seconds=5)
-    SEEK_ALIGNMENT_DURATION = Duration(seconds=60)
+    SEEK_ALIGNMENT_DURATION = Duration(seconds=30)
     LANDING_THRESHOLD_ALTITUDE: float = 0.5
     TAKEOFF_THRESHOLD_ALTITUDE: float = 30.0
     HARDCODED_DROP_ALTITUDE: float = 3.0
@@ -82,6 +82,7 @@ class ObjectAlignmentController(Node):
         self.state_machine_timer = self.create_timer(0.5, self.update_state_machine)
 
         self.current_mode = ArduPilotMode.AUTO
+        self.guided_mode_request_in_flight = False
         self.current_gps_position = None
 
         self.last_target_position = None
@@ -105,12 +106,17 @@ class ObjectAlignmentController(Node):
         self.get_logger().info(f"Recieved new mode: {ArduPilotMode(mode.mode).name}")
         self.current_mode = ArduPilotMode(mode.mode)
 
+        # A mode update arrived; allow future mode requests if needed.
+        self.guided_mode_request_in_flight = False
+
     def target_position_callback(self, target_position: TargetPosition):
         if self.state == OacState.RETURNING:
             return
 
         if (self.current_mode != ArduPilotMode.GUIDED):
-            self.send_new_mode(ArduPilotMode.GUIDED)
+            if not self.guided_mode_request_in_flight:
+                self.send_new_mode(ArduPilotMode.GUIDED)
+                self.guided_mode_request_in_flight = True
             return
 
         if (target_position.object_label != "bullseye"):
