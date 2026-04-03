@@ -159,9 +159,10 @@ class TopicConverter(Node):
 
     def status_callback(self, msg: Status):
         ap_mode = ArduPilotMode(msg.mode)
-
         
-        self.get_logger().info(f"Received ArduPilot mode: {ap_mode.name} ({ap_mode.value})")
+        if ap_mode != self.last_mode:
+            self.get_logger().info(f"Mode changed: {ap_mode.name} ({ap_mode.value})")
+            self.last_mode = ap_mode
 
         mode_msg = Mode()
         mode_msg.mode = ap_mode.value
@@ -188,8 +189,6 @@ class TopicConverter(Node):
         self.gps_publisher.publish(gps_msg)
 
     def new_position_callback(self, msg: NewDronePosition):
-  
-        
         new_gps_msg = GlobalPosition()
 
         new_gps_msg.header.frame_id = "map"
@@ -199,20 +198,14 @@ class TopicConverter(Node):
         new_gps_msg.latitude = msg.latitude
         new_gps_msg.longitude = msg.longitude
 
-   
-
         if self.minimum_altitude is not None:
             new_gps_msg.altitude = msg.altitude + self.minimum_altitude
-
-        
-        
+   
         # Rate limit new GPS position publishing
         should_publish, self.last_new_gps_publish_time = self.check_rate_limit(self.last_new_gps_publish_time)
         if should_publish:
             self.new_gps_publisher.publish(new_gps_msg)
             self.get_logger().info(f"Published new GPS position to ArduPilot: lat={new_gps_msg.latitude}, lon={new_gps_msg.longitude}, alt={new_gps_msg.altitude}, yaw={new_gps_msg.yaw}")
-        else:
-            self.get_logger().warning(f"New GPS position rate limited")
 
     def call_mode_switch(self, mode: int = 4) -> bool:
         try:
@@ -251,45 +244,42 @@ class TopicConverter(Node):
         Returns True on success, False on failure.
         """
         # 1) Switch to GUIDED via service
-        try:
-            mode_client = self.create_client(ModeSwitch, '/ap/mode_switch')
-            if not mode_client.wait_for_service(timeout_sec=5.0):
-                self.get_logger().error(f"Mode switch service not available")
-                return False
-            mode_req = ModeSwitch.Request()
-            mode_req.mode = 4 # GUIDED mode value
-            mode_fut = mode_client.call_async(mode_req)
-            rclpy.spin_until_future_complete(self, mode_fut, timeout_sec=5.0)
-            self.get_logger().info(f"Switched to GUIDED mode")
+        mode_client = self.create_client(ModeSwitch, '/ap/mode_switch')
+        if not mode_client.wait_for_service(timeout_sec=5.0):
+            self.get_logger().error(f"Mode switch service not available")
+            return False
+        mode_req = ModeSwitch.Request()
+        mode_req.mode = 4 # GUIDED mode value
+        mode_fut = mode_client.call_async(mode_req)
+        rclpy.spin_until_future_complete(self, mode_fut, timeout_sec=5.0)
+        self.get_logger().info(f"Switched to GUIDED mode")
 
 
-            # 2) Arm motors via service
-            arm_client = self.create_client(ArmMotors, '/ap/arm_motors')
-            if not arm_client.wait_for_service(timeout_sec=5.0):
-                self.get_logger().error(f"Arm service not available")
-                return False
-            arm_req = ArmMotors.Request()
-            arm_req.arm = True
-            arm_fut = arm_client.call_async(arm_req)
-            rclpy.spin_until_future_complete(self, arm_fut, timeout_sec=5.0)
-            self.get_logger().info("Motors armed")
-       
-            # 3) Publish a new GlobalPosition with desired takeoff altitude
-            takeoff_client = self.create_client(Takeoff, '/ap/experimental/takeoff')
-            if not takeoff_client.wait_for_service(timeout_sec=5.0):
-                self.get_logger().error('Takeoff service not available')
-                return False
-            tk_req = Takeoff.Request()
-            if self.minimum_altitude is not None:
-                tk_req.alt = float(takeoff_altitude) + self.minimum_altitude
-            else:
-                tk_req.alt = float(takeoff_altitude)
-            tk_fut = takeoff_client.call_async(tk_req)
-            rclpy.spin_until_future_complete(self, tk_fut, timeout_sec=5.0)
-            self.get_logger().info(f'Takeoff initiated to {takeoff_altitude} meters')
-            return True
-        finally:
-            self.get_logger().info("Takeoff sequence complete")
+        # 2) Arm motors via service
+        arm_client = self.create_client(ArmMotors, '/ap/arm_motors')
+        if not arm_client.wait_for_service(timeout_sec=5.0):
+            self.get_logger().error(f"Arm service not available")
+            return False
+        arm_req = ArmMotors.Request()
+        arm_req.arm = True
+        arm_fut = arm_client.call_async(arm_req)
+        rclpy.spin_until_future_complete(self, arm_fut, timeout_sec=5.0)
+        self.get_logger().info("Motors armed")
+    
+        # 3) Publish a new GlobalPosition with desired takeoff altitude
+        takeoff_client = self.create_client(Takeoff, '/ap/experimental/takeoff')
+        if not takeoff_client.wait_for_service(timeout_sec=5.0):
+            self.get_logger().error('Takeoff service not available')
+            return False
+        tk_req = Takeoff.Request()
+        if self.minimum_altitude is not None:
+            tk_req.alt = float(takeoff_altitude) + self.minimum_altitude
+        else:
+            tk_req.alt = float(takeoff_altitude)
+        tk_fut = takeoff_client.call_async(tk_req)
+        rclpy.spin_until_future_complete(self, tk_fut, timeout_sec=5.0)
+        self.get_logger().info(f'Takeoff initiated to {takeoff_altitude} meters')
+        return True
    
 
 
