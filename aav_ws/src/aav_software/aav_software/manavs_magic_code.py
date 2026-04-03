@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-import rclpy
-from rclpy.node import Node
-# For Manav's Code
 import math
 import numpy as np
+
+import rclpy
+from rclpy.node import Node
+
 from pyproj import CRS, Transformer
+
 # For GPS subscriber
 from aav_msgs.msg import DronePosition
 # For YOLO Subscriber
@@ -13,138 +15,97 @@ from yolo_msgs.msg import DetectionArray, Point2D
 from aav_msgs.msg import TargetPosition
 
 
-# TODO (FROM CARTER) Figure out Differences in ChatGPT code
-# https://www.notion.so/vtaav/Manav-s-Code-fixing-31a623fcf7fe807cb35fc3184a78ee79?source=copy_link
-
-# Testing commands:
-"""
-
-# View output topic
-ros2 topic echo /AAV/estimated_target_position
-
-"""
-
-
-"""
-From Manav:
-This code outputs the position (lat, lon) of a target after being inputted with various variables.
-The following inputs are required: craft.roll, craft.pitch, craft.yaw, craft.alt, craft_lat, craft_lon, targ_pos.x_norm, targ_pos.y_norm.
-The following values are hardcode: cam.fov_hor, cam.fov_vert.
-Example values given in code should be overwritten somehow based on aircraft/image data.
-"""
-
-class ManavsMagicCode(Node):
-    def __init__(self):
-        super().__init__("manavs_magic_code")
-        
-        self.gps_sub = self.create_subscription(DronePosition, "AAV/current_gps_position", self.update_craft_gps, 10)
-        self.yolo_sub = self.create_subscription(DetectionArray, "/yolo/detections", self.update_targ_gps, 10)
-        self.publisher = self.create_publisher(TargetPosition, "AAV/estimated_target_position", 10)
-
-        self.craft = Craft()
-        self.targ_pos = targ_pos()
-        self.cam = cam()
-
-        self.get_logger().info("Manav's Magic Code has been launched.")
-
-
-    def update_craft_gps(self, msg_in: DronePosition):
-        self.craft.lat = msg_in.latitude
-        self.craft.lon = msg_in.longitude
-        self.craft.alt = msg_in.altitude
-        self.craft.roll = 0 # radians(msg_in.roll)
-        self.craft.pitch = 0 # radians(msg_in.pitch)
-        self.craft.yaw = math.radians(msg_in.yaw)
-
-
-    def update_targ_gps(self, msg_in: DetectionArray):
-        # Extract Detection Center from YOLO Detection Array (Assuming Only 1 Detection for Now)
-        if len(msg_in.detections) == 0:
-            return
-        center: Point2D = msg_in.detections[0].bbox.center.position
-
-        # Convert Center Coordinates to Normalized Values Based on Camera FOV
-        self.targ_pos.x_norm = center.x / self.cam.x_res # Normalized Position of Target | 0 = Leftmost Edge, 0.5 = Middle, 1 = Rightmost Edge
-        self.targ_pos.y_norm = center.y / self.cam.y_res # Normalized Position of Target | 0 = Top Edge, 0.5 = Middle, 1 = Bottom Edge
-        # NOTE: The above normalization is based on the SIYI A8 Mini's 16:9 cropped resolution of 640x360. If the camera or resolution changes, this will need to be updated.
-        
-        # Calculate Target Position (Lat, Lon) and Publish
-        self.targ_pos, self.cam = calc_targ_dist(self.craft, self.targ_pos, self.cam)
-        self.craft, self.targ_pos = calc_targ_loc(self.craft, self.targ_pos)
-        msg_out = TargetPosition()
-        msg_out.object_label = msg_in.detections[0].class_name
-        msg_out.longitude = self.targ_pos.lon
-        msg_out.latitude = self.targ_pos.lat
-        self.publisher.publish(msg_out)
-
-
-""" Inputs from Autopilot for Aircraft Attitude and Position at Image Capture """
 class Craft:
-    lat = 0 # Input, Latitude
-    lon = 0 # Input, Longitude
-    alt = 70 # Input, Altitude (m)
-    roll = math.radians(0) # Input, Roll (Radians) | Range from -PI/2 (Roll Left) to PI/2 (Roll Right)
-    pitch = math.radians(0) # Input, Pitch (Radians) | Range from -PI/2 (Nose Down) to PI/2 (Nose Up)
-    yaw = math.radians(0) # Input, Heading (Radians) | Range from 0 to 2PI (North) with Clockwise Rotation Being Positive
+    """Inputs from Autopilot for aircraft attitude and position at image capture."""
+    def __init__(self):
+        self.lat = 0.0   # degrees
+        self.lon = 0.0   # degrees
+        self.alt = 70.0  # meters AGL (relative to ground)
+        self.roll = 0.0  # radians (unused in nadir-only approximation)
+        self.pitch = 0.0 # radians (unused in nadir-only approximation)
+        self.yaw = 0.0   # radians (ROS/ENU-style in your data: 0=East, +CCW)
 
 
-""" Info Regarding Position of Target in Various Reference Frames """
-class targ_pos:
-    x_norm = 0.5 # Input, Normalized Position of Target | 0 = Leftmost Edge, 0.5 = Middle, 1 = Rightmost Edge
-    y_norm = 0.5 # Input, Normalized Position of Target, | 0 = Top Edge, 0.5 = Middle, 1 = Bottom Edge
+class TargPos:
+    """Info regarding position of target in various reference frames."""
+    def __init__(self):
+        self.x_norm = 0.5
+        self.y_norm = 0.5
+        self.x_dist = 0.0  # meters EAST  (+)
+        self.y_dist = 0.0  # meters NORTH (+)
+        self.lat = 0.0
+        self.lon = 0.0
 
 
-""" Info Regarding Camera Specifications """
-class cam:
+class Cam:
     """
-    The drone is currently using a SIYI A8 Mini gibmbaled camera.
-    Specs: https://siyi.biz/en/index.php?asd=22&id=specs
-    Diagonal FOV:    93.0 deg
-    Horizontal FOV:  81.0 deg
-    Vertical FOV:    65.3 deg
-    This is consistent with a standard useful 4:3 aspect ratio.
-    However, the camera records cropped to 16:9, so:
-    Vertical FOV:    51.3 deg
-    NOTE: This math is done with spherical trig (can't assume rectangular).
+    SIYI A8 Mini gimbaled camera.
+    Using 16:9 cropped resolution 640x360 and corresponding vertical FOV.
+    Assumptions for this node:
+      - Camera points straight down (nadir)
+      - Camera yaw rotates with drone yaw
+      - Camera roll/pitch relative to drone are ~0
     """
-    fov_hor = math.radians(81) # Horizontal FOV of Camera (Radians)
-    fov_vert = math.radians(51.3) # Vertical FOV of Camera (Radians)
-    x_res = 640 # Horizontal Resolution of Camera (Pixels)
-    y_res = 360 # Vertical Resolution of Camera (Pixels)
+    def __init__(self):
+        self.fov_hor = math.radians(81.0)
+        self.fov_vert = math.radians(51.3)
+        self.x_res = 640
+        self.y_res = 360
+        self.fov_hor_dist = 0.0
+        self.fov_vert_dist = 0.0
 
 
-""" Calculate Distance (m) Between Image and Target Center """
-def calc_targ_dist(craft, targ_pos, cam):
-    # Calculate Image FOV Coverage in Terms of Distance (m)
-    cam.fov_hor_dist = 2 * craft.alt * math.tan(cam.fov_hor/2)
-    cam.fov_vert_dist = 2 * craft.alt * math.tan(cam.fov_vert/2)
+def calc_targ_dist(craft: Craft, targ_pos: TargPos, cam: Cam):
+    """
+    Compute target ground offsets (EAST, NORTH) in meters using a nadir camera approximation.
 
-    # Calculate Distance (m) Between Image and Target Center Assuming ZERO Attitude (Level and Facing North)
-    targ_pos.x_dist = cam.fov_hor_dist * (targ_pos.x_norm - 0.5) # Positive is Left, Negative Right
-    targ_pos.y_dist = -cam.fov_vert_dist * (targ_pos.y_norm - 0.5) # Positive is Up, Negative Down
+    Pixel conventions:
+      - x increases to the RIGHT
+      - y increases DOWN
 
-    # Form Rotation Matrix for Attitude Integration
-    Rx = np.array([[1, 0, 0], [0, math.cos(craft.roll), -math.sin(craft.roll)], [0, math.sin(craft.roll), math.cos(craft.roll)]])
-    Ry = np.array([[math.cos(craft.pitch), 0, math.sin(craft.pitch)], [0, 1, 0], [-math.sin(craft.pitch), 0, math.cos(craft.pitch)]])
-    Rz = np.array([[math.cos(craft.yaw), -math.sin(craft.yaw), 0], [math.sin(craft.yaw), math.cos(craft.yaw), 0], [0, 0, 1]])
-    rotmat_rpy = np.matmul(np.matmul(Rz, Ry), Rx)
+    Body conventions assumed:
+      - forward = +X_body
+      - right   = +Y_body
 
-    # Apply Rotation Matrix to Distance Data for Attitude Integration
-    targ_pos_mat = [targ_pos.y_dist, targ_pos.x_dist, craft.alt]
-    targ_pos_trans = np.matmul(rotmat_rpy, targ_pos_mat)
-    scale = targ_pos_mat[2]/targ_pos_trans[2]
-    targ_pos_trans = targ_pos_trans * scale
+    Given your measured yaw:
+      - craft.yaw is radians
+      - 0 ~= East, +pi/2 ~= North, -pi/2 ~= South, -pi ~= West
+      => ENU/ROS yaw: 0 along +East, positive CCW toward North
 
-    # Save New Distances Based on Attitude
-    targ_pos.x_dist, targ_pos.y_dist = targ_pos_trans[1], targ_pos_trans[0]
-    
+    Mapping:
+      dx (image right)  -> +right
+      dy (image down)   -> -forward
+    Then rotate (forward,right) into ENU (east,north) using ENU yaw.
+    """
+    # Ground footprint (meters) at altitude AGL
+    cam.fov_hor_dist = 2.0 * craft.alt * math.tan(cam.fov_hor / 2.0)
+    cam.fov_vert_dist = 2.0 * craft.alt * math.tan(cam.fov_vert / 2.0)
+
+    # Image -> ground in body axes (nadir camera)
+    dx = (targ_pos.x_norm - 0.5) * cam.fov_hor_dist   # +right
+    dy = (targ_pos.y_norm - 0.5) * cam.fov_vert_dist  # +down
+
+    right = dx
+    forward = -dy
+
+    # Rotate body (forward,right) into ENU using ENU yaw (0=East, +CCW)
+    psi = craft.yaw
+    east = forward * math.cos(psi) + right * math.sin(psi)
+    north = forward * math.sin(psi) - right * math.cos(psi)
+
+    targ_pos.x_dist = east
+    targ_pos.y_dist = north
     return targ_pos, cam
 
 
-def calc_targ_loc(craft, targ_pos):
-    # Pick UTM zone (works fine for most cases; see note below for zone crossings)
-    utm_zone = math.floor((craft.lon + 180) / 6) + 1
-    is_northern = craft.lat >= 0
+def calc_targ_loc(craft: Craft, targ_pos: TargPos):
+    """
+    Convert EN offsets (meters) to lat/lon using UTM as a local metric projection.
+    Assumes targ_pos.x_dist is EAST (+) and targ_pos.y_dist is NORTH (+).
+    """
+    # Pick UTM zone based on craft longitude
+    utm_zone = math.floor((craft.lon + 180.0) / 6.0) + 1
+    is_northern = craft.lat >= 0.0
 
     crs_ll = CRS.from_epsg(4326)
     crs_utm = CRS.from_dict({
@@ -154,24 +115,93 @@ def calc_targ_loc(craft, targ_pos):
         "south": not is_northern
     })
 
-    # Force lon/lat order on input/output
     to_utm = Transformer.from_crs(crs_ll, crs_utm, always_xy=True)
-    to_ll  = Transformer.from_crs(crs_utm, crs_ll, always_xy=True)
+    to_ll = Transformer.from_crs(crs_utm, crs_ll, always_xy=True)
 
-    # lon, lat -> easting, northing
+    # lon,lat -> easting,northing
     craft_e, craft_n = to_utm.transform(craft.lon, craft.lat)
 
-    # ---- OFFSETS ----
-    # If targ_pos.x_dist is EAST (+) and targ_pos.y_dist is NORTH (+), then:
+    # Apply EN offsets
     targ_e = craft_e + targ_pos.x_dist
     targ_n = craft_n + targ_pos.y_dist
 
-    # easting, northing -> lon, lat
+    # back to lon,lat
     targ_lon, targ_lat = to_ll.transform(targ_e, targ_n)
 
     targ_pos.lon = targ_lon
     targ_pos.lat = targ_lat
     return craft, targ_pos
+
+
+class ManavsMagicCode(Node):
+    def __init__(self):
+        super().__init__("manavs_magic_code")
+
+        self.gps_sub = self.create_subscription(
+            DronePosition,
+            "AAV/current_gps_position",
+            self.update_craft_gps,
+            10
+        )
+        self.yolo_sub = self.create_subscription(
+            DetectionArray,
+            "/yolo/detections",
+            self.update_targ_gps,
+            10
+        )
+        self.publisher = self.create_publisher(
+            TargetPosition,
+            "AAV/estimated_target_position",
+            10
+        )
+
+        self.craft = Craft()
+        self.targ_pos = TargPos()
+        self.cam = Cam()
+
+        self.get_logger().info("Manav's Magic Code has been launched.")
+
+    def update_craft_gps(self, msg_in: DronePosition):
+        self.craft.lat = float(msg_in.latitude)
+        self.craft.lon = float(msg_in.longitude)
+        self.craft.alt = float(msg_in.altitude)  # AGL per your note
+
+        # If you later add roll/pitch, keep them in radians.
+        # For now (nadir + level assumption), leave them at 0.
+        self.craft.roll = 0.0
+        self.craft.pitch = 0.0
+
+        # Your measured yaw values indicate radians already with ENU/ROS-style meaning.
+        # So do NOT wrap with math.radians() here.
+        self.craft.yaw = float(msg_in.yaw)
+
+    def update_targ_gps(self, msg_in: DetectionArray):
+        if len(msg_in.detections) == 0:
+            return
+
+        # Assume first detection for now
+        det = msg_in.detections[0]
+        center: Point2D = det.bbox.center.position
+
+        # Normalize pixel coords
+        # Expect center.x in [0..x_res], center.y in [0..y_res]
+        self.targ_pos.x_norm = float(center.x) / float(self.cam.x_res)
+        self.targ_pos.y_norm = float(center.y) / float(self.cam.y_res)
+
+        # Clamp just in case upstream gives slightly out-of-range values
+        self.targ_pos.x_norm = max(0.0, min(1.0, self.targ_pos.x_norm))
+        self.targ_pos.y_norm = max(0.0, min(1.0, self.targ_pos.y_norm))
+
+        # Compute target EN offsets + lat/lon
+        self.targ_pos, self.cam = calc_targ_dist(self.craft, self.targ_pos, self.cam)
+        self.craft, self.targ_pos = calc_targ_loc(self.craft, self.targ_pos)
+
+        msg_out = TargetPosition()
+        msg_out.object_label = det.class_name
+        msg_out.longitude = float(self.targ_pos.lon)
+        msg_out.latitude = float(self.targ_pos.lat)
+        self.publisher.publish(msg_out)
+
 
 def main(args=None):
     rclpy.init(args=args)

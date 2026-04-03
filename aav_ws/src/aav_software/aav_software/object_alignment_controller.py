@@ -12,10 +12,6 @@ from enum import Enum
 # Reference Pseudocode:
 # https://www.notion.so/vtaav/Object-Alignment-Controller-Pseudocode-308623fcf7fe80609d81f3410f0f6a13?source=copy_link
 
-# TODO: Interface with substructure control code
-
-# TODO: (CARTER) Prevent drone from lowering altitude until it is directly above the target.
-
 
 # Testing commands:
 """
@@ -159,7 +155,7 @@ class ObjectAlignmentController(Node):
 
                     self.state = OacState.DESCENDING
                     self.get_logger().info(f"Switching state to {self.state.name}")
-            case OacState.DESCENDING
+            case OacState.DESCENDING:
                 # periodically decrease the target altitude (0.5m every second)
                 self.descend_target_altitude = max(self.descend_target_altitude - 0.5, ObjectAlignmentController.HARDCODED_DROP_ALTITUDE)
 
