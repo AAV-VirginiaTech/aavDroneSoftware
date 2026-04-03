@@ -66,7 +66,7 @@ class ObjectAlignmentController(Node):
     SUBSTRUCTURE_ACTION_DURATION = Duration(seconds=5)
     SEEK_ALIGNMENT_DURATION = Duration(seconds=30)
     LANDING_THRESHOLD_ALTITUDE: float = 0.5
-    TAKEOFF_THRESHOLD_ALTITUDE: float = 30.0
+    TAKEOFF_THRESHOLD_ALTITUDE: float = 15.0
     HARDCODED_DROP_ALTITUDE: float = 3.0
 
     def __init__(self):
@@ -111,6 +111,9 @@ class ObjectAlignmentController(Node):
 
     def target_position_callback(self, target_position: TargetPosition):
         if self.state == OacState.RETURNING:
+            return
+
+        if self.state not in (OacState.SEEKING, OacState.DESCENDING):
             return
 
         if (self.current_mode != ArduPilotMode.GUIDED):
