@@ -74,7 +74,7 @@ class ObjectAlignmentController(Node):
 
         self.mode_sub = self.create_subscription(Mode, "/AAV/current_mode", self.mode_callback, 10)
         self.target_position_sub = self.create_subscription(TargetPosition, "/AAV/estimated_target_position", self.target_position_callback, 10)
-        self.current_drone_position_sub = self.create_subscription(DronePosition, "AAV/current_gps_position", self.gps_position_callback, 10)
+        self.current_drone_position_sub = self.create_subscription(DronePosition, "/AAV/current_gps_position", self.gps_position_callback, 10)
 
         self.new_position_pub = self.create_publisher(NewDronePosition, "/AAV/send_new_position", 10)
         self.new_mode_pub = self.create_publisher(Mode, "/AAV/set_mode", 10)
@@ -137,9 +137,11 @@ class ObjectAlignmentController(Node):
             new_position.longitude = target_position.longitude
 
             new_position.altitude = self.HARDCODED_DROP_ALTITUDE
+            self.last_target_position = new_position
+
+            self.new_position_pub.publish(new_position)
 
     def gps_position_callback(self, gps_position: DronePosition):
-        self.get_logger().info(f"Recieved new gps position: {gps_position}")
         self.current_gps_position = gps_position
 
     def update_state_machine(self):
