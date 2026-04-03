@@ -160,10 +160,9 @@ class ObjectAlignmentController(Node):
                 self.descend_target_altitude = max(self.descend_target_altitude - 0.5, ObjectAlignmentController.HARDCODED_DROP_ALTITUDE)
 
                 # within .25m of drop altitude, either start landing or run payload drop
-                if abs(self.gps_position.altitude - ObjectAlignmentController.HARDCODED_DROP_ALTITUDE) < 0.25:
+                if abs(self.current_gps_position.altitude - ObjectAlignmentController.HARDCODED_DROP_ALTITUDE) < 0.25:
                     if self.doing_package_delivery_mission:
                         self.send_new_mode(ArduPilotMode.LAND)
-
                         self.state = OacState.LANDING
                         self.get_logger().info(f"Switching mode to {self.state.name}")
                     else:
