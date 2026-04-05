@@ -9,9 +9,8 @@ from aav_msgs.msg import DronePosition
 from .topic_converter_for_simulation import ArduPilotMode
 from enum import Enum
 
-# Reference Pseudocode:
-# https://www.notion.so/vtaav/Object-Alignment-Controller-Pseudocode-308623fcf7fe80609d81f3410f0f6a13?source=copy_link
-
+# Finite State Machine Diagram
+# https://miro.com/app/board/uXjVIjMwI14=/?focusWidget=3458764648320440275
 
 # Testing commands:
 """
@@ -51,10 +50,10 @@ yaw: 0.0
 
 class OacState(Enum):
     """
-    Impliments the state machine diagram shown on the Object Alignment Controller Miro board
+    Implements the state machine diagram shown on the Object Alignment Controller Miro board
     """
     SEEKING = 0             # Monitoring for new targets; sending their positions while maintaining altitude
-    DESCENDING = 1          # Sending target posititons while slowly lowering altitude
+    DESCENDING = 1          # Sending target positions while slowly lowering altitude
     DROPPING_PAYLOAD = 2    # Waiting for payload drop to finish
     LANDING = 3             # In landing mode; waiting to reach ground
     DROPPING_PACKAGE = 4    # Waiting for package drop to finish
