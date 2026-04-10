@@ -53,20 +53,23 @@ class OacState(Enum):
     Implements the state machine diagram shown on the Object Alignment Controller Miro board
     """
     SEEKING = 0             # Monitoring for new targets; sending their positions while maintaining altitude
-    DESCENDING = 1          # Sending target positions while slowly lowering altitude
-    DROPPING_PAYLOAD = 2    # Waiting for payload drop to finish
-    LANDING = 3             # In landing mode; waiting to reach ground
-    DROPPING_PACKAGE = 4    # Waiting for package drop to finish
-    TAKING_OFF = 5          # In takeoff mode; waiting to reach threshold altitude
-    RETURNING = 6           # Back in AUTO mode; done
+    ALIGNED_DESCENDING = 1  # Sending target positions while descending to alignment altitude; holds at alignment altitude for 8s
+    FINAL_DESCENDING = 2    # Descending to drop altitude
+    DROPPING_PAYLOAD = 3    # Waiting for payload drop to finish
+    LANDING = 4             # In landing mode; waiting to reach ground
+    DROPPING_PACKAGE = 5    # Waiting for package drop to finish
+    TAKING_OFF = 6          # In takeoff mode; waiting to reach threshold altitude
+    RETURNING = 7           # Back in AUTO mode; done
 
 
 class ObjectAlignmentController(Node):
     SUBSTRUCTURE_ACTION_DURATION = Duration(seconds=5)
     SEEK_ALIGNMENT_DURATION = Duration(seconds=30)
-    DESCENDING_ALIGNMENT_DURATION = Duration(seconds=8)
+    DESCENT_ALIGNMENT_DURATION = Duration(seconds=8)
+
     LANDING_THRESHOLD_ALTITUDE: float = 0.5
     TAKEOFF_THRESHOLD_ALTITUDE: float = 15.0
+    DESCENT_ALIGNMENT_ALTITUDE: float = 3.7
     HARDCODED_DROP_ALTITUDE: float = 3.0
 
     def __init__(self):
@@ -92,8 +95,6 @@ class ObjectAlignmentController(Node):
         self.state = OacState.SEEKING
         self.time_marker = self.get_clock().now()
 
-        self.descend_target_altitude = -10000
-
         self.get_logger().info("Object Alignment Controller has been launched")
 
     def send_new_mode(self, mode: ArduPilotMode):
@@ -112,7 +113,7 @@ class ObjectAlignmentController(Node):
         if self.state == OacState.RETURNING:
             return
 
-        if self.state not in (OacState.SEEKING, OacState.DESCENDING):
+        if self.state not in (OacState.SEEKING, OacState.ALIGNED_DESCENDING):
             return
 
         if (self.current_mode != ArduPilotMode.GUIDED):
@@ -139,7 +140,7 @@ class ObjectAlignmentController(Node):
             self.last_target_position = new_position
 
             self.new_position_pub.publish(new_position)
-        elif self.state == OacState.DESCENDING:
+        elif self.state == OacState.ALIGNED_DESCENDING:
             new_position = NewDronePosition()
             new_position.latitude = target_position.latitude
             new_position.longitude = target_position.longitude
@@ -161,32 +162,43 @@ class ObjectAlignmentController(Node):
                     self.time_marker = self.get_clock().now()
                 elif self.get_clock().now() - self.time_marker > ObjectAlignmentController.SEEK_ALIGNMENT_DURATION:
                     # if the timer has expired (we saw our first target 60 seconds ago), start descending
-                  
 
-                    self.state = OacState.DESCENDING
+                    self.state = OacState.ALIGNED_DESCENDING
                     self.get_logger().info(f"Switching state to {self.state.name}")
-            case OacState.DESCENDING:
-
+            case OacState.ALIGNED_DESCENDING:
                 # within .25m of drop altitude, check timer
-                if abs(self.current_gps_position.altitude - ObjectAlignmentController.HARDCODED_DROP_ALTITUDE) < 0.25:
+                if abs(self.current_gps_position.altitude - ObjectAlignmentController.DESCENT_ALIGNMENT_ALTITUDE) < 0.25:
                     # allow 8 seconds for final alignment
-                    if self.get_clock().now() - self.time_marker < ObjectAlignmentController.DESCENDING_ALIGNMENT_DURATION:
+                    if self.get_clock().now() - self.time_marker < ObjectAlignmentController.DESCENT_ALIGNMENT_DURATION:
                         return
+                    # if the timer has expired, move on to final descent
+                    else:
+                        new_position = NewDronePosition()
+                        new_position.longitude = self.current_gps_position.longitude
+                        new_position.latitude = self.current_gps_position.latitude
+                        new_position.altitude = ObjectAlignmentController.HARDCODED_DROP_ALTITUDE
+                        self.new_position_pub.publish(new_position)
 
-                    # if the timer has expired, either start landing or run payload drop
+                        self.state = OacState.FINAL_DESCENDING
+                        self.get_logger().info(f"Switching state to {self.state.name}")
+                # not within range of drop altitude, reset the timer
+                else:
+                    self.time_marker = self.get_clock().now()
+
+            case OacState.FINAL_DESCENDING:
+                if abs(self.current_gps_position.altitude - ObjectAlignmentController.HARDCODED_DROP_ALTITUDE) < 0.25:
+                    # if at descent altitude, either start landing or run payload drop
                     if self.doing_package_delivery_mission:
                         self.send_new_mode(ArduPilotMode.LAND)
                         self.state = OacState.LANDING
-                        self.get_logger().info(f"Switching mode to {self.state.name}")
+                        self.get_logger().info(f"Switching state to {self.state.name}")
                     else:
                         # TODO: Call payload drop script
                         self.time_marker = self.get_clock().now()
 
                         self.state = OacState.DROPPING_PAYLOAD
                         self.get_logger().info(f"Switching state to {self.state.name}")
-                # not within range of drop altitude, reset the timer
-                else:
-                    self.time_marker = self.get_clock().now()
+
 
             case OacState.DROPPING_PAYLOAD:
                 if self.get_clock().now() - self.time_marker > ObjectAlignmentController.SUBSTRUCTURE_ACTION_DURATION:
