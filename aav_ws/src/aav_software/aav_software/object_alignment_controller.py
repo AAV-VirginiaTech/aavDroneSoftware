@@ -64,6 +64,7 @@ class OacState(Enum):
 class ObjectAlignmentController(Node):
     SUBSTRUCTURE_ACTION_DURATION = Duration(seconds=5)
     SEEK_ALIGNMENT_DURATION = Duration(seconds=30)
+    DESCENDING_ALIGNMENT_DURATION = Duration(seconds=8)
     LANDING_THRESHOLD_ALTITUDE: float = 0.5
     TAKEOFF_THRESHOLD_ALTITUDE: float = 15.0
     HARDCODED_DROP_ALTITUDE: float = 3.0
@@ -167,8 +168,13 @@ class ObjectAlignmentController(Node):
                     self.get_logger().info(f"Switching state to {self.state.name}")
             case OacState.DESCENDING:
 
-                # within .25m of drop altitude, either start landing or run payload drop
+                # within .25m of drop altitude, check timer
                 if abs(self.current_gps_position.altitude - ObjectAlignmentController.HARDCODED_DROP_ALTITUDE) < 0.25:
+                    # allow 8 seconds for final alignment
+                    if self.get_clock().now() - self.time_marker < ObjectAlignmentController.DESCENDING_ALIGNMENT_DURATION:
+                        return
+
+                    # if the timer has expired, either start landing or run payload drop
                     if self.doing_package_delivery_mission:
                         self.send_new_mode(ArduPilotMode.LAND)
                         self.state = OacState.LANDING
@@ -179,6 +185,9 @@ class ObjectAlignmentController(Node):
 
                         self.state = OacState.DROPPING_PAYLOAD
                         self.get_logger().info(f"Switching state to {self.state.name}")
+                # not within range of drop altitude, reset the timer
+                else:
+                    self.time_marker = self.get_clock().now()
 
             case OacState.DROPPING_PAYLOAD:
                 if self.get_clock().now() - self.time_marker > ObjectAlignmentController.SUBSTRUCTURE_ACTION_DURATION:
