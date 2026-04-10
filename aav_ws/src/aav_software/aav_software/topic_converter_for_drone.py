@@ -28,6 +28,8 @@ class TopicConverter(Node):
         self.get_logger().info("Topic Converter has been launched")
 
         self.minimum_altitude = None
+
+        self.current_mode = None
         
         # Rate limiting for new position callback (max 1 per 5 seconds)
         self.last_new_gps_publish_time = 0.0
@@ -69,6 +71,11 @@ class TopicConverter(Node):
         return False, last_publish_time
     
     def set_mode_callback(self, msg: Mode):
+        # Prevent mode switching if drone is in position hold mode
+        if self.current_mode == ArduPilotMode.POSHOLD:
+            self.get_logger().warn(f"Cannot switch modes while in POSHOLD. Current mode: {self.last_mode.name}")
+            return
+
         if msg.mode == ArduPilotMode.TAKEOFF.value:
             self.get_logger().info("Received takeoff command from AAV Software")
             success = self.takeoff(takeoff_altitude=30.0)
@@ -84,7 +91,8 @@ class TopicConverter(Node):
       
         if ap_mode != self.last_mode:
             self.get_logger().info(f"Mode changed: {ap_mode.name} ({ap_mode.value})")
-            self.last_mode = ap_mode
+
+        self.current_mode = ap_mode
 
         mode_msg = Mode()
         mode_msg.mode = ap_mode.value
