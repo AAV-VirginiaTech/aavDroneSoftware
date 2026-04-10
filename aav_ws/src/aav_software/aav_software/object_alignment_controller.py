@@ -69,7 +69,7 @@ class ObjectAlignmentController(Node):
 
     LANDING_THRESHOLD_ALTITUDE: float = 0.5
     TAKEOFF_THRESHOLD_ALTITUDE: float = 15.0
-    DESCENT_ALIGNMENT_ALTITUDE: float = 3.7
+    DESCENT_ALIGNMENT_ALTITUDE: float = 4.6
     HARDCODED_DROP_ALTITUDE: float = 3.0
 
     def __init__(self):
