@@ -24,20 +24,18 @@ from .topic_converter_for_simulation import ArduPilotMode
 
 MODE_TO_STRING = {
     ArduPilotMode.GUIDED.value: "GUIDED",
-    ArduPilotMode.LOITER.value: "LOITER",
+    ArduPilotMode.AUTO.value: "AUTO",
     ArduPilotMode.RTL.value: "RTL",
     ArduPilotMode.LAND.value: "LAND",
     ArduPilotMode.POSHOLD.value: "POSHOLD",
-    ArduPilotMode.STABILIZE.value: "STABILIZE",
 }
 
 STRING_TO_MODE = {
     "GUIDED": ArduPilotMode.GUIDED.value,
-    "LOITER": ArduPilotMode.LOITER.value,
+    "AUTO": ArduPilotMode.AUTO.value,
     "RTL": ArduPilotMode.RTL.value,
     "LAND": ArduPilotMode.LAND.value,
     "POSHOLD": ArduPilotMode.POSHOLD.value,
-    "STABILIZE": ArduPilotMode.STABILIZE.value,
 }
 
 
