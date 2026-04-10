@@ -65,7 +65,7 @@ class OacState(Enum):
 class ObjectAlignmentController(Node):
     SUBSTRUCTURE_ACTION_DURATION = Duration(seconds=5)
     SEEK_ALIGNMENT_DURATION = Duration(seconds=30)
-    DESCENT_ALIGNMENT_DURATION = Duration(seconds=8)
+    DESCENT_ALIGNMENT_DURATION = Duration(seconds=12)
 
     LANDING_THRESHOLD_ALTITUDE: float = 0.5
     TAKEOFF_THRESHOLD_ALTITUDE: float = 15.0
