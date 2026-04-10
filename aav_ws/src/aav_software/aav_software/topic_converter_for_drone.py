@@ -47,6 +47,8 @@ class TopicConverter(Node):
         self.get_logger().info("MAVROS Topic Converter (Hardcoded Modes) Started")
 
         self.home_altitude = None
+        self.current_latitude = None
+        self.current_longitude = None
         self.current_yaw = 0.0
         self.current_mode = None
 
@@ -155,7 +157,12 @@ class TopicConverter(Node):
 
     def gps_callback(self, msg: NavSatFix):
         if self.home_altitude is None:
+            # Store the first GPS altitude as the local origin reference.
+            # /mavros/global_position/global reports GPS altitude as ellipsoid height.
             self.home_altitude = msg.altitude
+
+        self.current_latitude = msg.latitude
+        self.current_longitude = msg.longitude
 
         gps_msg = DronePosition()
         gps_msg.latitude = msg.latitude
@@ -200,7 +207,9 @@ class TopicConverter(Node):
         pose.pose.position.latitude = msg.latitude
         pose.pose.position.longitude = msg.longitude
 
-        if self.home_altitude:
+        # Convert local AAV altitude to MAVROS global altitude by adding the home reference.
+        # If home_altitude is not yet known, publish the requested altitude directly.
+        if self.home_altitude is not None:
             pose.pose.position.altitude = msg.altitude + self.home_altitude
         else:
             pose.pose.position.altitude = msg.altitude
@@ -247,8 +256,8 @@ class TopicConverter(Node):
 
         req = CommandTOL.Request()
         req.altitude = altitude
-        req.latitude = 0.0
-        req.longitude = 0.0
+        req.latitude = self.current_latitude if self.current_latitude is not None else 0.0
+        req.longitude = self.current_longitude if self.current_longitude is not None else 0.0
         req.yaw = self.current_yaw
 
         self.call_service(client, req, "takeoff")
