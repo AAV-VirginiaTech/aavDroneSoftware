@@ -103,7 +103,6 @@ class ObjectAlignmentController(Node):
 
 
     def mode_callback(self, mode: Mode):
-        self.get_logger().info(f"Recieved new mode: {ArduPilotMode(mode.mode).name}")
         self.current_mode = ArduPilotMode(mode.mode)
 
         # A mode update arrived; allow future mode requests if needed.
