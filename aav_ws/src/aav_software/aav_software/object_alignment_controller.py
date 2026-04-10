@@ -145,7 +145,7 @@ class ObjectAlignmentController(Node):
             new_position.latitude = target_position.latitude
             new_position.longitude = target_position.longitude
 
-            new_position.altitude = self.HARDCODED_DROP_ALTITUDE
+            new_position.altitude = self.DESCENT_ALIGNMENT_ALTITUDE
             self.last_target_position = new_position
 
             self.new_position_pub.publish(new_position)
@@ -165,12 +165,13 @@ class ObjectAlignmentController(Node):
 
                     self.state = OacState.ALIGNED_DESCENDING
                     self.get_logger().info(f"Switching state to {self.state.name}")
+
             case OacState.ALIGNED_DESCENDING:
                 # within .25m of drop altitude, check timer
                 if abs(self.current_gps_position.altitude - ObjectAlignmentController.DESCENT_ALIGNMENT_ALTITUDE) < 0.25:
                     # allow 8 seconds for final alignment
                     if self.get_clock().now() - self.time_marker < ObjectAlignmentController.DESCENT_ALIGNMENT_DURATION:
-                        return
+                        pass
                     # if the timer has expired, move on to final descent
                     else:
                         new_position = NewDronePosition()
