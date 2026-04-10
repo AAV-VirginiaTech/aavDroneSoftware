@@ -10,7 +10,7 @@ from geographic_msgs.msg import GeoPoseStamped
 from ardupilot_msgs.msg import GlobalPosition 
 from aav_msgs.msg import DronePosition
 from aav_msgs.msg import NewDronePosition
-from enum import Enum, IntEnum
+from enum import IntEnum
 from ardupilot_msgs.srv import ModeSwitch
 from ardupilot_msgs.srv import ArmMotors
 from ardupilot_msgs.srv import Takeoff
@@ -151,7 +151,7 @@ class TopicConverter(Node):
     def set_mode_callback(self, msg: Mode):
         # Prevent mode switching if drone is in position hold mode
         if self.current_mode == ArduPilotMode.POSHOLD:
-            self.get_logger().warn(f"Cannot switch modes while in POSHOLD. Current mode: {self.last_mode.name}")
+            self.get_logger().warn(f"Cannot switch modes while in POSHOLD. Current mode: {self.current_mode.name}")
             return
         
         if msg.mode == ArduPilotMode.TAKEOFF.value:
@@ -166,10 +166,10 @@ class TopicConverter(Node):
 
     def status_callback(self, msg: Status):
         ap_mode = ArduPilotMode(msg.mode)
-        
-        if ap_mode != self.last_mode:
+
+        if ap_mode != self.current_mode:
             self.get_logger().info(f"Mode changed: {ap_mode.name} ({ap_mode.value})")
-        
+
         self.current_mode = ap_mode
 
         mode_msg = Mode()
