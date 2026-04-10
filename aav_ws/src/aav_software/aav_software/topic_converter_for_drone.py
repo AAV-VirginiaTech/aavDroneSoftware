@@ -1,226 +1,266 @@
 #!/usr/bin/env python3
-import rclpy
 import math
 import time
+
+import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
-from ardupilot_msgs.msg import Status
-from aav_msgs.msg import Mode
+
+from sensor_msgs.msg import NavSatFix
+from geometry_msgs.msg import PoseStamped
 from geographic_msgs.msg import GeoPoseStamped
-from ardupilot_msgs.msg import GlobalPosition 
-from aav_msgs.msg import DronePosition
-from aav_msgs.msg import NewDronePosition
-from enum import IntEnum
-from ardupilot_msgs.srv import ModeSwitch
-from ardupilot_msgs.srv import ArmMotors
-from ardupilot_msgs.srv import Takeoff
+
+from mavros_msgs.msg import State
+from mavros_msgs.srv import SetMode, CommandBool, CommandTOL
+
+from aav_msgs.msg import Mode, DronePosition, NewDronePosition
+
 from .topic_converter_for_simulation import ArduPilotMode
 
 
-# TODO Update this file to work with MAVROS instead of ardupilot for the actual drone
-# Resource: https://www.notion.so/vtaav/Ardupilot-to-MavROS-topic-conversions-32e623fcf7fe808495a9fc30ba85e564?source=copy_link
+# =========================
+#  MODE MAPPING
+# =========================
 
+MODE_TO_STRING = {
+    ArduPilotMode.GUIDED.value: "GUIDED",
+    ArduPilotMode.LOITER.value: "LOITER",
+    ArduPilotMode.RTL.value: "RTL",
+    ArduPilotMode.LAND.value: "LAND",
+    ArduPilotMode.POSHOLD.value: "POSHOLD",
+    ArduPilotMode.STABILIZE.value: "STABILIZE",
+}
+
+STRING_TO_MODE = {
+    "GUIDED": ArduPilotMode.GUIDED.value,
+    "LOITER": ArduPilotMode.LOITER.value,
+    "RTL": ArduPilotMode.RTL.value,
+    "LAND": ArduPilotMode.LAND.value,
+    "POSHOLD": ArduPilotMode.POSHOLD.value,
+    "STABILIZE": ArduPilotMode.STABILIZE.value,
+}
 
 
 class TopicConverter(Node):
     def __init__(self):
         super().__init__("topic_converter_for_drone")
-        self.get_logger().info("Topic Converter has been launched")
+        self.get_logger().info("MAVROS Topic Converter (Hardcoded Modes) Started")
 
-        self.minimum_altitude = None
-
+        self.home_altitude = None
+        self.current_yaw = 0.0
         self.current_mode = None
-        
-        # Rate limiting for new position callback (max 1 per 5 seconds)
-        self.last_new_gps_publish_time = 0.0
-        self.rate_limit_interval = 5.0
 
-        # Subscriber(Mode): ArduPilot -> TC
-        self.status_subscriber = self.create_subscription(Status, '/ap/status', self.status_callback, 10)
-        # Publisher(Mode): TC -> AAV Software
-        self.mode_publisher = self.create_publisher(Mode, '/AAV/current_mode', 10)
+        self.latest_setpoint = None
+        self.last_setpoint_time = 0.0
 
-        # QoS profile for sensor data (BEST_EFFORT reliability)
         sensor_qos = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
             history=HistoryPolicy.KEEP_LAST,
             depth=10
         )
 
-        # Subscriber(GeoPoseStamped): ArduPilot -> TC
-        self.global_position_subscriber = self.create_subscription(GeoPoseStamped, '/ap/geopose/filtered', self.global_position_callback, sensor_qos)
-        # Publisher(GlobalPosition): TC -> AAV Software
-        self.gps_publisher = self.create_publisher(DronePosition, '/AAV/current_gps_position', 10)
+        # =========================
+        # SUBSCRIBERS (MAVROS)
+        # =========================
 
-        #Subscriber(NewPosition): AAV Software -> TC
-        self.new_position_subscriber = self.create_subscription(NewDronePosition, '/AAV/send_new_position', self.new_position_callback, 10)
-        #Publisher(NewPosition): TC -> ArduPilot
-        self.new_gps_publisher = self.create_publisher(GlobalPosition, '/ap/cmd_gps_pose', 10)
+        self.create_subscription(State, '/mavros/state', self.state_callback, 10)
 
-        self.set_mode = self.create_subscription(Mode, '/AAV/set_mode', self.set_mode_callback, 10)
+        self.create_subscription(
+            NavSatFix,
+            '/mavros/global_position/global',
+            self.gps_callback,
+            sensor_qos
+        )
 
-    def check_rate_limit(self, last_publish_time: float) -> tuple:
-        """
-        Check if enough time has passed since the last publish.
-        Returns: (should_publish, updated_time)
-        """
-       
-        current_time = time.time()
-        if current_time - last_publish_time >= self.rate_limit_interval:
-            return True, current_time
-        return False, last_publish_time
-    
+        self.create_subscription(
+            PoseStamped,
+            '/mavros/local_position/pose',
+            self.pose_callback,
+            sensor_qos
+        )
+
+        # =========================
+        # SUBSCRIBERS (AAV)
+        # =========================
+
+        self.create_subscription(Mode, '/AAV/set_mode', self.set_mode_callback, 10)
+
+        self.create_subscription(
+            NewDronePosition,
+            '/AAV/send_new_position',
+            self.new_position_callback,
+            10
+        )
+
+        # =========================
+        # PUBLISHERS
+        # =========================
+
+        self.mode_pub = self.create_publisher(Mode, '/AAV/current_mode', 10)
+
+        self.gps_pub = self.create_publisher(
+            DronePosition,
+            '/AAV/current_gps_position',
+            10
+        )
+
+        self.setpoint_pub = self.create_publisher(
+            GeoPoseStamped,
+            '/mavros/setpoint_position/global',
+            10
+        )
+
+        # Continuous setpoint publishing (REQUIRED by MAVROS)
+        self.create_timer(0.2, self.publish_setpoint)
+
+    # =========================
+    # UTIL FUNCTIONS
+    # =========================
+
+    def quaternion_to_yaw(self, q):
+        return math.atan2(
+            2 * (q.w * q.z + q.x * q.y),
+            1 - 2 * (q.y**2 + q.z**2)
+        )
+
+    def yaw_to_quaternion(self, yaw):
+        return (
+            math.sin(yaw / 2),
+            math.cos(yaw / 2)
+        )
+
+    def call_service(self, client, req, name):
+        if not client.wait_for_service(timeout_sec=5.0):
+            self.get_logger().error(f"{name} not available")
+            return None
+
+        future = client.call_async(req)
+        rclpy.spin_until_future_complete(self, future, timeout_sec=5.0)
+        return future.result()
+
+    # =========================
+    # MAVROS CALLBACKS
+    # =========================
+
+    def state_callback(self, msg: State):
+        self.current_mode = msg.mode
+
+        if msg.mode in STRING_TO_MODE:
+            mode_msg = Mode()
+            mode_msg.mode = STRING_TO_MODE[msg.mode]
+            self.mode_pub.publish(mode_msg)
+
+    def pose_callback(self, msg: PoseStamped):
+        self.current_yaw = self.quaternion_to_yaw(msg.pose.orientation)
+
+    def gps_callback(self, msg: NavSatFix):
+        if self.home_altitude is None:
+            self.home_altitude = msg.altitude
+
+        gps_msg = DronePosition()
+        gps_msg.latitude = msg.latitude
+        gps_msg.longitude = msg.longitude
+        gps_msg.altitude = msg.altitude - self.home_altitude
+        gps_msg.yaw = self.current_yaw
+
+        self.gps_pub.publish(gps_msg)
+
+    # =========================
+    # AAV CALLBACKS
+    # =========================
+
     def set_mode_callback(self, msg: Mode):
-        # Prevent mode switching if drone is in position hold mode
-        if self.current_mode == ArduPilotMode.POSHOLD:
-            self.get_logger().warn(f"Cannot switch modes while in POSHOLD. Current mode: {self.current_mode.name}")
+
+        if self.current_mode == "POSHOLD":
+            self.get_logger().warn("Cannot switch out of POSHOLD")
             return
 
         if msg.mode == ArduPilotMode.TAKEOFF.value:
-            self.get_logger().info("Received takeoff command from AAV Software")
-            success = self.takeoff(takeoff_altitude=30.0)
-            if success:
-                self.get_logger().info("Takeoff sequence executed successfully")
-            else:
-                self.get_logger().error("Takeoff sequence failed")
+            self.takeoff(30.0)
+            return
+
+        if msg.mode not in MODE_TO_STRING:
+            self.get_logger().error("Unknown mode")
+            return
+
+        mode_string = MODE_TO_STRING[msg.mode]
+
+        client = self.create_client(SetMode, '/mavros/set_mode')
+
+        req = SetMode.Request()
+        req.custom_mode = mode_string
+
+        self.call_service(client, req, "set_mode")
+
+    def new_position_callback(self, msg: NewDronePosition):
+
+        pose = GeoPoseStamped()
+        pose.header.frame_id = "map"
+
+        pose.pose.position.latitude = msg.latitude
+        pose.pose.position.longitude = msg.longitude
+
+        if self.home_altitude:
+            pose.pose.position.altitude = msg.altitude + self.home_altitude
         else:
-            self.call_mode_switch(msg.mode)
+            pose.pose.position.altitude = msg.altitude
 
-    def status_callback(self, msg: Status):
-        ap_mode = ArduPilotMode(msg.mode)
+        yaw = getattr(msg, "yaw", self.current_yaw)
+        z, w = self.yaw_to_quaternion(yaw)
 
-        if ap_mode != self.current_mode:
-            self.get_logger().info(f"Mode changed: {ap_mode.name} ({ap_mode.value})")
+        pose.pose.orientation.z = z
+        pose.pose.orientation.w = w
 
-        self.current_mode = ap_mode
+        self.latest_setpoint = pose
+        self.last_setpoint_time = time.time()
 
-        mode_msg = Mode()
-        mode_msg.mode = ap_mode.value
-        
-        self.mode_publisher.publish(mode_msg)
+    def publish_setpoint(self):
+        if self.latest_setpoint is None:
+            return
 
-    def global_position_callback(self, msg: GeoPoseStamped):
-     
-        if (self.minimum_altitude is None) or (self.minimum_altitude == 0.0):
-            self.minimum_altitude = msg.pose.position.altitude
-        elif msg.pose.position.altitude < self.minimum_altitude:
-            self.minimum_altitude = msg.pose.position.altitude
-        
-        gps_msg = DronePosition()
-        gps_msg.latitude = msg.pose.position.latitude
-        gps_msg.longitude = msg.pose.position.longitude
-        gps_msg.altitude = msg.pose.position.altitude - self.minimum_altitude
-        # Extract yaw from quaternion orientation
-    
-        q = msg.pose.orientation
-        yaw = math.atan2(2*(q.w*q.z + q.x*q.y), 1 - 2*(q.y**2 + q.z**2))
-        gps_msg.yaw = yaw   
+        if time.time() - self.last_setpoint_time > 5:
+            return
 
-        self.gps_publisher.publish(gps_msg)
+        self.latest_setpoint.header.stamp = self.get_clock().now().to_msg()
+        self.setpoint_pub.publish(self.latest_setpoint)
 
-    def new_position_callback(self, msg: NewDronePosition):      
-        new_gps_msg = GlobalPosition()
+    # =========================
+    # SERVICES
+    # =========================
 
-        new_gps_msg.header.frame_id = "map"
+    def arm(self):
+        client = self.create_client(CommandBool, '/mavros/cmd/arming')
+        req = CommandBool.Request()
+        req.value = True
+        return self.call_service(client, req, "arming")
 
-        new_gps_msg.coordinate_frame = 5  # GLOBAL (absolute altitude)
+    def takeoff(self, altitude):
 
-        new_gps_msg.latitude = msg.latitude
-        new_gps_msg.longitude = msg.longitude
+        # Set GUIDED
+        self.set_mode_callback(Mode(mode=ArduPilotMode.GUIDED.value))
 
-        if self.minimum_altitude is not None:
-            new_gps_msg.altitude = msg.altitude + self.minimum_altitude
+        # Arm
+        self.arm()
 
-        
-        
-        # Rate limit new GPS position publishing
-        should_publish, self.last_new_gps_publish_time = self.check_rate_limit(self.last_new_gps_publish_time)
-        if should_publish:
-            self.new_gps_publisher.publish(new_gps_msg)
-            self.get_logger().info(f"Published new GPS position to ArduPilot: lat={new_gps_msg.latitude}, lon={new_gps_msg.longitude}, alt={new_gps_msg.altitude}, yaw={new_gps_msg.yaw}")
+        # Takeoff
+        client = self.create_client(CommandTOL, '/mavros/cmd/takeoff')
 
-    def call_mode_switch(self, mode: int = 4) -> bool:
-        try:
-            client = self.create_client(ModeSwitch, '/ap/mode_switch')
+        req = CommandTOL.Request()
+        req.altitude = altitude
+        req.latitude = 0.0
+        req.longitude = 0.0
+        req.yaw = self.current_yaw
 
-            if not client.wait_for_service(timeout_sec=5.0):
-                self.get_logger().error('Service /ap/mode_switch not available')
-                return False
-
-            req = ModeSwitch.Request()
-            req.mode = mode
-            future = client.call_async(req)
-
-            rclpy.spin_until_future_complete(self, future, timeout_sec=5.0)
-
-            if future.result() is not None:
-                self.get_logger().info(f'Mode switch completed: {future.result()}')
-                success = True
-            else:
-                self.get_logger().error('Mode switch service call failed')
-                success = False
-
-            return success
-        except Exception as e:
-            self.get_logger().error(f'Mode switch failed with exception: {e}')
-            return False
-
-    def takeoff(self, takeoff_altitude: float = 30.0) -> bool:
-        """
-        Perform a takeoff sequence:
-        1) switch ArduPilot to GUIDED
-        2) arm motors
-        3) publish a GlobalPosition with the desired takeoff altitude
-
-
-        Returns True on success, False on failure.
-        """
-        # 1) Switch to GUIDED via service
-        mode_client = self.create_client(ModeSwitch, '/ap/mode_switch')
-        if not mode_client.wait_for_service(timeout_sec=5.0):
-            self.get_logger().error(f"Mode switch service not available")
-            return False
-        mode_req = ModeSwitch.Request()
-        mode_req.mode = 4 # GUIDED mode value
-        mode_fut = mode_client.call_async(mode_req)
-        rclpy.spin_until_future_complete(self, mode_fut, timeout_sec=5.0)
-        self.get_logger().info(f"Switched to GUIDED mode")
-
-
-        # 2) Arm motors via service
-        arm_client = self.create_client(ArmMotors, '/ap/arm_motors')
-        if not arm_client.wait_for_service(timeout_sec=5.0):
-            self.get_logger().error(f"Arm service not available")
-            return False
-        arm_req = ArmMotors.Request()
-        arm_req.arm = True
-        arm_fut = arm_client.call_async(arm_req)
-        rclpy.spin_until_future_complete(self, arm_fut, timeout_sec=5.0)
-        self.get_logger().info("Motors armed")
-    
-        # 3) Publish a new GlobalPosition with desired takeoff altitude
-        takeoff_client = self.create_client(Takeoff, '/ap/experimental/takeoff')
-        if not takeoff_client.wait_for_service(timeout_sec=5.0):
-            self.get_logger().error('Takeoff service not available')
-            return False
-        tk_req = Takeoff.Request()
-        if self.minimum_altitude is not None:
-            tk_req.alt = float(takeoff_altitude) + self.minimum_altitude
-        else:
-            tk_req.alt = float(takeoff_altitude)
-        tk_fut = takeoff_client.call_async(tk_req)
-        rclpy.spin_until_future_complete(self, tk_fut, timeout_sec=5.0)
-        self.get_logger().info(f'Takeoff initiated to {takeoff_altitude} meters')
-        return True
-   
+        self.call_service(client, req, "takeoff")
 
 
 def main(args=None):
     rclpy.init(args=args)
     node = TopicConverter()
     rclpy.spin(node)
+    node.destroy_node()
     rclpy.shutdown()
- 
- 
+
+
 if __name__ == "__main__":
     main()
