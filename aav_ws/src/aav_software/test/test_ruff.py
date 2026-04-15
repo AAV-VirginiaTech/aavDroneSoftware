@@ -22,10 +22,17 @@ import pytest
 @pytest.mark.linter
 def test_ruff():
     package_root = Path(__file__).resolve().parents[1]
-    result = subprocess.run(
+    lint_result = subprocess.run(
         [sys.executable, "-m", "ruff", "check", str(package_root)],
         capture_output=True,
         text=True,
         check=False,
     )
-    assert result.returncode == 0, result.stdout + result.stderr
+    format_result = subprocess.run(
+        [sys.executable, "-m", "ruff", "format", "--check", str(package_root)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert lint_result.returncode == 0, lint_result.stdout + lint_result.stderr
+    assert format_result.returncode == 0, format_result.stdout + format_result.stderr

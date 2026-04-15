@@ -1,4 +1,4 @@
-# Copyright 2015 Open Source Robotics Foundation, Inc.
+# Copyright 2026 Open Source Robotics Foundation, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,12 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ament_pep257.main import main
+import subprocess
+import sys
+from pathlib import Path
+
 import pytest
 
 
 @pytest.mark.linter
-@pytest.mark.pep257
-def test_pep257():
-    rc = main(argv=['.', 'test'])
-    assert rc == 0, 'Found code style errors / warnings'
+def test_pylance():
+    package_root = Path(__file__).resolve().parents[1]
+    result = subprocess.run(
+        [sys.executable, "-m", "pyright", str(package_root)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr

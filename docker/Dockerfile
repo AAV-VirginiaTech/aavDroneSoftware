@@ -14,6 +14,7 @@ RUN apt update && apt install -y --no-install-recommends \
 
 RUN pip install pyproj
 RUN pip install ruff
+RUN pip install pyright
 
 RUN echo root:robotics | chpasswd
 
