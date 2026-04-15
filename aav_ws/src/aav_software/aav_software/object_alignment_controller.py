@@ -122,8 +122,8 @@ class ObjectAlignmentController(Node):
                 self.guided_mode_request_in_flight = True
             return
 
-        if (target_position.object_label != "bullseye"):
-            self.get_logger().info("The detected object is not a bullseye. Ignoring.")
+        if (target_position.object_label != "Bulleye"):
+            self.get_logger().info("The detected object is not a Bulleye. Ignoring.")
             return
 
         # if this is the first target we have seen, reset the timer
@@ -187,7 +187,7 @@ class ObjectAlignmentController(Node):
                     self.time_marker = self.get_clock().now()
 
             case OacState.FINAL_DESCENDING:
-                if abs(self.current_gps_position.altitude - ObjectAlignmentController.HARDCODED_DROP_ALTITUDE) < 0.25:
+                if abs(self.current_gps_position.altitude - ObjectAlignmentController.DESCENT_ALIGNMENT_ALTITUDE) < 0.25:
                     # if at descent altitude, either start landing or run payload drop
                     if self.doing_package_delivery_mission:
                         self.send_new_mode(ArduPilotMode.LAND)
