@@ -43,6 +43,13 @@ If you're using GitHub Codespaces, to view the RQT_GRAPH, perform the following:
 6. Once you see the "noVNC" logo, click the "Connect" button to open the desktop.
 7. The RQT_GRAPH will be visible in the desktop (if you've started the RQT_GRAPH).
 
+## Test AAV Software Code
+Use colcon test to do unit tests and python lint checking.
+```
+colcon test
+colcon test-result --verbose
+```
+
 ## AAV Software Python Files
 ### Location Logger
 Used to log the locations and labels of objects/targets we detect through our vision recognition.
