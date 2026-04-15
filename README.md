@@ -43,6 +43,19 @@ If you're using GitHub Codespaces, to view the RQT_GRAPH, perform the following:
 6. Once you see the "noVNC" logo, click the "Connect" button to open the desktop.
 7. The RQT_GRAPH will be visible in the desktop (if you've started the RQT_GRAPH).
 
+## AAV Software Python Files
+### Location Logger
+Used to log the locations and labels of objects/targets we detect through our vision recognition.
+
+### Manav's Magic Code
+Used to detect the latitude and longitude of objects/targets on the ground that are detected through our vision recognition.
+
+### Object Alignment Controller
+This is the main software that controls the drone's autonomous logic. It is designed as a Finite State Machine. [Link to diagram of Finite State Machine](https://miro.com/app/board/uXjVIjMwI14=/?focusWidget=3458764648320440275).
+
+### Topic Converter
+This acts as a bridge between our software and either the simulation or the actual drone. It handles converting our own topics into either Ardupilot or MAVROS topics.
+
 ## Launch Files (Run the software!)
 ### aav_simulation_launch
 Used to run the full software setup with Gazebo, yolo, and AAV Software Nodes. Run this on a computer with Ubuntu Linux and an NVIDIA Graphics card.
