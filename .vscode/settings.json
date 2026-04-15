@@ -1,3 +1,32 @@
 {
-  "cmake.sourceDirectory": "/workspaces/aavDroneSoftware/aav_ws/src/aav_bringup"
+  "cmake.sourceDirectory": "/workspaces/aavDroneSoftware/aav_ws/src/aav_bringup",
+  "python-envs.defaultEnvManager": "ms-python.python:system",
+  "python.defaultInterpreterPath": "/usr/bin/python3",
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true
+  },
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.ruff": "explicit",
+    "source.organizeImports.ruff": "explicit"
+  },
+  "black-formatter.enabled": false,
+  "autopep8.enabled": false,
+  "yapf.enabled": false,
+  "pylint.enabled": false,
+  "mypy-type-checker.enabled": false,
+  "flake8.enabled": false,
+  "ruff.nativeServer": "on",
+  "python.analysis.typeCheckingMode": "standard",
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/aav_ws/src/aav_software",
+    "${workspaceFolder}/aav_ws/install/aav_msgs/local/lib/python3.10/dist-packages",
+    "${workspaceFolder}/aav_ws/install/ardupilot_msgs/local/lib/python3.10/dist-packages",
+    "${workspaceFolder}/aav_ws/install/mavros_msgs/local/lib/python3.10/dist-packages",
+    "${workspaceFolder}/aav_ws/install/yolo_msgs/local/lib/python3.10/dist-packages",
+    "${workspaceFolder}/aav_ws/install/aav_software/lib/python3.10/site-packages",
+    "/opt/ros/humble/lib/python3.10/site-packages",
+    "/opt/ros/humble/local/lib/python3.10/dist-packages"
+  ]
 }
