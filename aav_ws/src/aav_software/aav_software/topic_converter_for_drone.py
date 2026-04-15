@@ -3,20 +3,16 @@ import math
 import time
 
 import rclpy
-from rclpy.node import Node
-from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
-
-from sensor_msgs.msg import NavSatFix
-from geometry_msgs.msg import PoseStamped
+from aav_msgs.msg import DronePosition, Mode, NewDronePosition
 from geographic_msgs.msg import GeoPoseStamped
-
+from geometry_msgs.msg import PoseStamped
 from mavros_msgs.msg import State
-from mavros_msgs.srv import SetMode, CommandBool, CommandTOL
-
-from aav_msgs.msg import Mode, DronePosition, NewDronePosition
+from mavros_msgs.srv import CommandBool, CommandTOL, SetMode
+from rclpy.node import Node
+from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
+from sensor_msgs.msg import NavSatFix
 
 from .topic_converter_for_simulation import ArduPilotMode
-
 
 # =========================
 #  MODE MAPPING
@@ -104,58 +100,45 @@ class TopicConverter(Node):
         sensor_qos = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
             history=HistoryPolicy.KEEP_LAST,
-            depth=10
+            depth=10,
         )
 
         # =========================
         # SUBSCRIBERS (MAVROS)
         # =========================
 
-        self.create_subscription(State, '/mavros/state', self.state_callback, 10)
+        self.create_subscription(State, "/mavros/state", self.state_callback, 10)
 
         self.create_subscription(
-            NavSatFix,
-            '/mavros/global_position/global',
-            self.gps_callback,
-            sensor_qos
+            NavSatFix, "/mavros/global_position/global", self.gps_callback, sensor_qos
         )
 
         self.create_subscription(
-            PoseStamped,
-            '/mavros/local_position/pose',
-            self.pose_callback,
-            sensor_qos
+            PoseStamped, "/mavros/local_position/pose", self.pose_callback, sensor_qos
         )
 
         # =========================
         # SUBSCRIBERS (AAV)
         # =========================
 
-        self.create_subscription(Mode, '/AAV/set_mode', self.set_mode_callback, 10)
+        self.create_subscription(Mode, "/AAV/set_mode", self.set_mode_callback, 10)
 
         self.create_subscription(
-            NewDronePosition,
-            '/AAV/send_new_position',
-            self.new_position_callback,
-            10
+            NewDronePosition, "/AAV/send_new_position", self.new_position_callback, 10
         )
 
         # =========================
         # PUBLISHERS
         # =========================
 
-        self.mode_pub = self.create_publisher(Mode, '/AAV/current_mode', 10)
+        self.mode_pub = self.create_publisher(Mode, "/AAV/current_mode", 10)
 
         self.gps_pub = self.create_publisher(
-            DronePosition,
-            '/AAV/current_gps_position',
-            10
+            DronePosition, "/AAV/current_gps_position", 10
         )
 
         self.setpoint_pub = self.create_publisher(
-            GeoPoseStamped,
-            '/mavros/setpoint_position/global',
-            10
+            GeoPoseStamped, "/mavros/setpoint_position/global", 10
         )
 
         # Continuous setpoint publishing (REQUIRED by MAVROS)
@@ -166,16 +149,10 @@ class TopicConverter(Node):
     # =========================
 
     def quaternion_to_yaw(self, q):
-        return math.atan2(
-            2 * (q.w * q.z + q.x * q.y),
-            1 - 2 * (q.y**2 + q.z**2)
-        )
+        return math.atan2(2 * (q.w * q.z + q.x * q.y), 1 - 2 * (q.y**2 + q.z**2))
 
     def yaw_to_quaternion(self, yaw):
-        return (
-            math.sin(yaw / 2),
-            math.cos(yaw / 2)
-        )
+        return (math.sin(yaw / 2), math.cos(yaw / 2))
 
     def call_service(self, client, req, name):
         if not client.wait_for_service(timeout_sec=5.0):
@@ -238,7 +215,7 @@ class TopicConverter(Node):
 
         mode_string = MODE_TO_STRING[msg.mode]
 
-        client = self.create_client(SetMode, '/mavros/set_mode')
+        client = self.create_client(SetMode, "/mavros/set_mode")
 
         req = SetMode.Request()
         req.custom_mode = mode_string
@@ -284,7 +261,7 @@ class TopicConverter(Node):
     # =========================
 
     def arm(self):
-        client = self.create_client(CommandBool, '/mavros/cmd/arming')
+        client = self.create_client(CommandBool, "/mavros/cmd/arming")
         req = CommandBool.Request()
         req.value = True
         return self.call_service(client, req, "arming")
@@ -298,12 +275,16 @@ class TopicConverter(Node):
         self.arm()
 
         # Takeoff
-        client = self.create_client(CommandTOL, '/mavros/cmd/takeoff')
+        client = self.create_client(CommandTOL, "/mavros/cmd/takeoff")
 
         req = CommandTOL.Request()
         req.altitude = altitude
-        req.latitude = self.current_latitude if self.current_latitude is not None else 0.0
-        req.longitude = self.current_longitude if self.current_longitude is not None else 0.0
+        req.latitude = (
+            self.current_latitude if self.current_latitude is not None else 0.0
+        )
+        req.longitude = (
+            self.current_longitude if self.current_longitude is not None else 0.0
+        )
         req.yaw = self.current_yaw
 
         self.call_service(client, req, "takeoff")

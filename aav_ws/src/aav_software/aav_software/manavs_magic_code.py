@@ -1,33 +1,33 @@
 #!/usr/bin/env python3
 import math
-import numpy as np
 
 import rclpy
-from rclpy.node import Node
-
-from pyproj import CRS, Transformer
 
 # For GPS subscriber
-from aav_msgs.msg import DronePosition
+# For Publisher
+from aav_msgs.msg import DronePosition, TargetPosition
+from pyproj import CRS, Transformer
+from rclpy.node import Node
+
 # For YOLO Subscriber
 from yolo_msgs.msg import DetectionArray, Point2D
-# For Publisher
-from aav_msgs.msg import TargetPosition
 
 
 class Craft:
     """Inputs from Autopilot for aircraft attitude and position at image capture."""
+
     def __init__(self):
-        self.lat = 0.0   # degrees
-        self.lon = 0.0   # degrees
+        self.lat = 0.0  # degrees
+        self.lon = 0.0  # degrees
         self.alt = 70.0  # meters AGL (relative to ground)
         self.roll = 0.0  # radians (unused in nadir-only approximation)
-        self.pitch = 0.0 # radians (unused in nadir-only approximation)
-        self.yaw = 0.0   # radians (ROS/ENU-style in your data: 0=East, +CCW)
+        self.pitch = 0.0  # radians (unused in nadir-only approximation)
+        self.yaw = 0.0  # radians (ROS/ENU-style in your data: 0=East, +CCW)
 
 
 class TargPos:
     """Info regarding position of target in various reference frames."""
+
     def __init__(self):
         self.x_norm = 0.5
         self.y_norm = 0.5
@@ -46,6 +46,7 @@ class Cam:
       - Camera yaw rotates with drone yaw
       - Camera roll/pitch relative to drone are ~0
     """
+
     def __init__(self):
         self.fov_hor = math.radians(81.0)
         self.fov_vert = math.radians(51.3)
@@ -82,7 +83,7 @@ def calc_targ_dist(craft: Craft, targ_pos: TargPos, cam: Cam):
     cam.fov_vert_dist = 2.0 * craft.alt * math.tan(cam.fov_vert / 2.0)
 
     # Image -> ground in body axes (nadir camera)
-    dx = (targ_pos.x_norm - 0.5) * cam.fov_hor_dist   # +right
+    dx = (targ_pos.x_norm - 0.5) * cam.fov_hor_dist  # +right
     dy = (targ_pos.y_norm - 0.5) * cam.fov_vert_dist  # +down
 
     right = dx
@@ -108,12 +109,9 @@ def calc_targ_loc(craft: Craft, targ_pos: TargPos):
     is_northern = craft.lat >= 0.0
 
     crs_ll = CRS.from_epsg(4326)
-    crs_utm = CRS.from_dict({
-        "proj": "utm",
-        "zone": utm_zone,
-        "datum": "WGS84",
-        "south": not is_northern
-    })
+    crs_utm = CRS.from_dict(
+        {"proj": "utm", "zone": utm_zone, "datum": "WGS84", "south": not is_northern}
+    )
 
     to_utm = Transformer.from_crs(crs_ll, crs_utm, always_xy=True)
     to_ll = Transformer.from_crs(crs_utm, crs_ll, always_xy=True)
@@ -138,21 +136,13 @@ class ManavsMagicCode(Node):
         super().__init__("manavs_magic_code")
 
         self.gps_sub = self.create_subscription(
-            DronePosition,
-            "AAV/current_gps_position",
-            self.update_craft_gps,
-            10
+            DronePosition, "AAV/current_gps_position", self.update_craft_gps, 10
         )
         self.yolo_sub = self.create_subscription(
-            DetectionArray,
-            "/yolo/detections",
-            self.update_targ_gps,
-            10
+            DetectionArray, "/yolo/detections", self.update_targ_gps, 10
         )
         self.publisher = self.create_publisher(
-            TargetPosition,
-            "AAV/estimated_target_position",
-            10
+            TargetPosition, "AAV/estimated_target_position", 10
         )
 
         self.craft = Craft()

@@ -30,18 +30,15 @@
 # limitations under the License.
 
 """Launch an iris quadcopter in Gazebo and Rviz."""
+
 from pathlib import Path
 
 from ament_index_python.packages import get_package_share_directory
-
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
-from launch.actions import IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration
-from launch.substitutions import PathJoinSubstitution
-
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
@@ -72,17 +69,17 @@ def generate_launch_description():
     # Gazebo.
     gz_sim_server = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            f'{Path(pkg_ros_gz_sim) / "launch" / "gz_sim.launch.py"}'
+            f"{Path(pkg_ros_gz_sim) / 'launch' / 'gz_sim.launch.py'}"
         ),
         launch_arguments={
             "gz_args": "-v4 -s -r "
-            f'{Path(aav_bringup) / "aav_worlds" / "aav_runway.sdf"}'
+            f"{Path(aav_bringup) / 'aav_worlds' / 'aav_runway.sdf'}"
         }.items(),
     )
 
     gz_sim_gui = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            f'{Path(pkg_ros_gz_sim) / "launch" / "gz_sim.launch.py"}'
+            f"{Path(pkg_ros_gz_sim) / 'launch' / 'gz_sim.launch.py'}"
         ),
         launch_arguments={"gz_args": "-v4 -g"}.items(),
     )
@@ -91,7 +88,7 @@ def generate_launch_description():
     rviz = Node(
         package="rviz2",
         executable="rviz2",
-        arguments=["-d", f'{Path(pkg_project_bringup) / "rviz" / "iris.rviz"}'],
+        arguments=["-d", f"{Path(pkg_project_bringup) / 'rviz' / 'iris.rviz'}"],
         condition=IfCondition(LaunchConfiguration("rviz")),
     )
 
@@ -114,7 +111,7 @@ def generate_launch_description():
         }.items(),
     )
 
-# Add AAV Software nodes you want to launch here
+    # Add AAV Software nodes you want to launch here
 
     location_logger = Node(
         package="aav_software",
@@ -125,12 +122,12 @@ def generate_launch_description():
         package="aav_software",
         executable="manavs_magic_code",
     )
-    
+
     object_alignment_controller = Node(
         package="aav_software",
         executable="object_alignment_controller",
     )
-    
+
     topic_converter = Node(
         package="aav_software",
         executable="topic_converter_for_simulation",
