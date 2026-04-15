@@ -44,7 +44,7 @@ If you're using GitHub Codespaces, to view the RQT_GRAPH, perform the following:
 7. The RQT_GRAPH will be visible in the desktop (if you've started the RQT_GRAPH).
 
 ## Test AAV Software Code
-Use colcon test to do unit tests and python lint checking.
+Use colcon test to do unit tests and python lint checking. Do colcon build before running the below commands if you want to be extra safe.
 ```
 colcon test
 colcon test-result --verbose
