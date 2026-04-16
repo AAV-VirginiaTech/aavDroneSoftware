@@ -69,8 +69,6 @@ class ObjectAlignmentController(Node):
 
     LANDING_THRESHOLD_ALTITUDE: float = 0.5
     TAKEOFF_THRESHOLD_ALTITUDE: float = 15.0
-    DESCENT_ALIGNMENT_ALTITUDE: float = 5.0
-    HARDCODED_DROP_ALTITUDE: float = 3.0
 
     def __init__(self):
         super().__init__("object_alignment_controller")
@@ -101,7 +99,29 @@ class ObjectAlignmentController(Node):
 
         self.last_target_position = None
 
-        self.doing_package_delivery_mission = True
+        ### ROS2 PARAMETERS
+
+        # Declare and get the package delivery mission parameter
+        self.declare_parameter("doing_package_delivery_mission", True)
+        self.doing_package_delivery_mission = self.get_parameter(
+            "doing_package_delivery_mission"
+        ).value
+
+        # Declare and get altitude parameters
+        self.declare_parameter("descent_alignment_altitude", 5.0)
+        self.descent_alignment_altitude = self.get_parameter(
+            "descent_alignment_altitude"
+        ).value
+
+        self.declare_parameter("hardcoded_drop_altitude", 3.0)
+        self.hardcoded_drop_altitude = self.get_parameter(
+            "hardcoded_drop_altitude"
+        ).value
+
+        self.declare_parameter("suas_competition", False)
+        self.suas_competition = self.get_parameter("suas_competition").value
+
+        ###
 
         self.state = OacState.SEEKING
         self.time_marker = self.get_clock().now()
@@ -155,7 +175,7 @@ class ObjectAlignmentController(Node):
             new_position.latitude = target_position.latitude
             new_position.longitude = target_position.longitude
 
-            new_position.altitude = self.DESCENT_ALIGNMENT_ALTITUDE
+            new_position.altitude = self.descent_alignment_altitude
             self.last_target_position = new_position
 
             self.new_position_pub.publish(new_position)
@@ -183,7 +203,7 @@ class ObjectAlignmentController(Node):
                 if (
                     abs(
                         self.current_gps_position.altitude
-                        - ObjectAlignmentController.DESCENT_ALIGNMENT_ALTITUDE
+                        - self.descent_alignment_altitude
                     )
                     < 0.25
                 ):
@@ -198,9 +218,7 @@ class ObjectAlignmentController(Node):
                         new_position = NewDronePosition()
                         new_position.longitude = self.current_gps_position.longitude
                         new_position.latitude = self.current_gps_position.latitude
-                        new_position.altitude = (
-                            ObjectAlignmentController.HARDCODED_DROP_ALTITUDE
-                        )
+                        new_position.altitude = self.hardcoded_drop_altitude
                         self.new_position_pub.publish(new_position)
 
                         self.state = OacState.FINAL_DESCENDING
@@ -213,7 +231,7 @@ class ObjectAlignmentController(Node):
                 if (
                     abs(
                         self.current_gps_position.altitude
-                        - ObjectAlignmentController.HARDCODED_DROP_ALTITUDE
+                        - self.hardcoded_drop_altitude
                     )
                     < 0.25
                 ):
