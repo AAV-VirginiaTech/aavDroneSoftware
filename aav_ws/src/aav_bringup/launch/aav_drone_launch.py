@@ -1,12 +1,28 @@
 from aav_software.object_alignment_controller import Mission
 from launch import LaunchDescription
+from launch.actions import IncludeLaunchDescription
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import PathJoinSubstitution
 from launch_ros.actions import Node
+from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
     ld = LaunchDescription()
 
     # Add AAV Software nodes you want to launch here
+
+    drone_mavros_and_camera_boot_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution(
+                [
+                    FindPackageShare("aav_bringup"),
+                    "launch",
+                    "drone_mavros_and_camera_boot_launch.py",
+                ]
+            )
+        )
+    )
 
     location_logger = Node(
         package="aav_software",
@@ -33,6 +49,7 @@ def generate_launch_description():
         executable="topic_converter_for_drone",
     )
 
+    ld.add_action(drone_mavros_and_camera_boot_launch)
     ld.add_action(location_logger)
     ld.add_action(manavs_magic_code)
     ld.add_action(object_alignment_controller)
