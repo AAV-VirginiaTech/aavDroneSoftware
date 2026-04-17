@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 import csv
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import rclpy
 from rclpy.node import Node
 
 from aav_msgs.msg import TargetPosition
+
+PST = timezone(timedelta(hours=-8), name="PST")
 
 
 class LocationLogger(Node):
@@ -47,9 +49,7 @@ class LocationLogger(Node):
     def location_callback(self, msg: TargetPosition):
         current_time = self.get_clock().now()
         if self.last_log_time is None or (current_time - self.last_log_time).nanoseconds >= 10_000_000_000:
-            now = self.get_clock().now()
-            seconds, nanoseconds = now.seconds_nanoseconds()
-            timestamp = datetime.fromtimestamp(seconds + nanoseconds * 1e-9, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            timestamp = datetime.now(timezone.utc).astimezone(PST).strftime("%Y-%m-%d %H:%M:%S")
             row = [timestamp, msg.object_label, msg.latitude, msg.longitude]
 
             try:
