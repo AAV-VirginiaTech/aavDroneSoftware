@@ -16,11 +16,13 @@ class LocationLogger(Node):
         self.declare_parameter("topic_name", "AAV/estimated_target_position")
         self.declare_parameter("log_file", "location_log.csv")
 
-        topic_name = self.get_parameter("topic_name").value
-        log_file = self.get_parameter("log_file").value
+        topic_name = str(self.get_parameter("topic_name").value)
+        log_file = str(self.get_parameter("log_file").value)
 
         self.log_file_path = os.path.abspath(log_file)
         self._ensure_log_file()
+
+        self.last_log_time = None
 
         self.subscription = self.create_subscription(
             TargetPosition,
@@ -43,22 +45,25 @@ class LocationLogger(Node):
                 self.get_logger().error(f"Failed to create log file {self.log_file_path}: {exc}")
 
     def location_callback(self, msg: TargetPosition):
-        now = self.get_clock().now()
-        seconds, nanoseconds = now.seconds_nanoseconds()
-        timestamp = datetime.fromtimestamp(seconds + nanoseconds * 1e-9, tz=timezone.utc).isoformat()
-        row = [timestamp, msg.object_label, msg.latitude, msg.longitude]
+        current_time = self.get_clock().now()
+        if self.last_log_time is None or (current_time - self.last_log_time).nanoseconds >= 10_000_000_000:
+            now = self.get_clock().now()
+            seconds, nanoseconds = now.seconds_nanoseconds()
+            timestamp = datetime.fromtimestamp(seconds + nanoseconds * 1e-9, tz=timezone.utc).isoformat()
+            row = [timestamp, msg.object_label, msg.latitude, msg.longitude]
 
-        try:
-            with open(self.log_file_path, mode="a", newline="", encoding="utf-8") as csvfile:
-                writer = csv.writer(csvfile)
-                writer.writerow(row)
-        except OSError as exc:
-            self.get_logger().error(f"Could not write location record: {exc}")
-            return
+            try:
+                with open(self.log_file_path, mode="a", newline="", encoding="utf-8") as csvfile:
+                    writer = csv.writer(csvfile)
+                    writer.writerow(row)
+            except OSError as exc:
+                self.get_logger().error(f"Could not write location record: {exc}")
+                return
 
-        self.get_logger().info(
-            f"Logged location: timestamp={timestamp}, object_label={msg.object_label}, latitude={msg.latitude}, longitude={msg.longitude}"
-        )
+            self.get_logger().info(
+                f"Logged location: timestamp={timestamp}, object_label={msg.object_label}, latitude={msg.latitude}, longitude={msg.longitude}"
+            )
+            self.last_log_time = current_time
 
 
 def main(args=None):
