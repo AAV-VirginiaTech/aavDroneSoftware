@@ -33,6 +33,7 @@
 
 from pathlib import Path
 
+from aav_software.object_alignment_controller import Mission
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
@@ -125,6 +126,11 @@ def generate_launch_description():
     object_alignment_controller = Node(
         package="aav_software",
         executable="object_alignment_controller",
+        parameters=[
+            {"current_mission": Mission.PACKAGE_DELIVERY_CUASC.value},
+            {"descent_alignment_altitude": 5.0},
+            {"hardcoded_drop_altitude": 3.0},
+        ],
     )
 
     topic_converter = Node(
