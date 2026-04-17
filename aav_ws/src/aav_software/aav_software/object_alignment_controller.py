@@ -230,7 +230,9 @@ class ObjectAlignmentController(Node):
                             self.new_position_pub.publish(new_position)
 
                             self.state = OacState.FINAL_DESCENDING
-                            self.get_logger().info(f"Switching state to {self.state.name}")
+                            self.get_logger().info(
+                                f"Switching state to {self.state.name}"
+                            )
                     # not within range of drop altitude, reset the timer
                     else:
                         self.time_marker = self.get_clock().now()

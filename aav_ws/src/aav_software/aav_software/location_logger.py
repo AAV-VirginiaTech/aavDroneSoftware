@@ -4,9 +4,8 @@ import os
 from datetime import datetime, timedelta, timezone
 
 import rclpy
-from rclpy.node import Node
-
 from aav_msgs.msg import TargetPosition
+from rclpy.node import Node
 
 PDT = timezone(timedelta(hours=-7), name="PDT")
 
@@ -40,20 +39,33 @@ class LocationLogger(Node):
     def _ensure_log_file(self):
         if not os.path.exists(self.log_file_path):
             try:
-                with open(self.log_file_path, mode="w", newline="", encoding="utf-8") as csvfile:
+                with open(
+                    self.log_file_path, mode="w", newline="", encoding="utf-8"
+                ) as csvfile:
                     writer = csv.writer(csvfile)
                     writer.writerow(["timestamp", "name", "latitude", "longitude"])
             except OSError as exc:
-                self.get_logger().error(f"Failed to create log file {self.log_file_path}: {exc}")
+                self.get_logger().error(
+                    f"Failed to create log file {self.log_file_path}: {exc}"
+                )
 
     def location_callback(self, msg: TargetPosition):
         current_time = self.get_clock().now()
-        if self.last_log_time is None or (current_time - self.last_log_time).nanoseconds >= 10_000_000_000:
-            timestamp = datetime.now(timezone.utc).astimezone(PDT).strftime("%Y-%m-%d %I:%M:%S %p")
+        if (
+            self.last_log_time is None
+            or (current_time - self.last_log_time).nanoseconds >= 10_000_000_000
+        ):
+            timestamp = (
+                datetime.now(timezone.utc)
+                .astimezone(PDT)
+                .strftime("%Y-%m-%d %I:%M:%S %p")
+            )
             row = [timestamp, msg.object_label, msg.latitude, msg.longitude]
 
             try:
-                with open(self.log_file_path, mode="a", newline="", encoding="utf-8") as csvfile:
+                with open(
+                    self.log_file_path, mode="a", newline="", encoding="utf-8"
+                ) as csvfile:
                     writer = csv.writer(csvfile)
                     writer.writerow(row)
             except OSError as exc:
