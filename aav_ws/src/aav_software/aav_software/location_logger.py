@@ -8,7 +8,7 @@ from rclpy.node import Node
 
 from aav_msgs.msg import TargetPosition
 
-PST = timezone(timedelta(hours=-8), name="PST")
+PDT = timezone(timedelta(hours=-7), name="PDT")
 
 
 class LocationLogger(Node):
@@ -49,7 +49,7 @@ class LocationLogger(Node):
     def location_callback(self, msg: TargetPosition):
         current_time = self.get_clock().now()
         if self.last_log_time is None or (current_time - self.last_log_time).nanoseconds >= 10_000_000_000:
-            timestamp = datetime.now(timezone.utc).astimezone(PST).strftime("%Y-%m-%d %H:%M:%S")
+            timestamp = datetime.now(timezone.utc).astimezone(PDT).strftime("%Y-%m-%d %I:%M:%S %p")
             row = [timestamp, msg.object_label, msg.latitude, msg.longitude]
 
             try:
