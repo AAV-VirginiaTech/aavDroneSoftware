@@ -49,7 +49,7 @@ class LocationLogger(Node):
         if self.last_log_time is None or (current_time - self.last_log_time).nanoseconds >= 10_000_000_000:
             now = self.get_clock().now()
             seconds, nanoseconds = now.seconds_nanoseconds()
-            timestamp = datetime.fromtimestamp(seconds + nanoseconds * 1e-9, tz=timezone.utc).isoformat()
+            timestamp = datetime.fromtimestamp(seconds + nanoseconds * 1e-9, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
             row = [timestamp, msg.object_label, msg.latitude, msg.longitude]
 
             try:
