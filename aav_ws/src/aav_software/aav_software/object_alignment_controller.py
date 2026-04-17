@@ -48,6 +48,20 @@ yaw: 0.0
 """
 
 
+class Mission(Enum):
+    """
+    Current mission being run by the Object Alignment Controller.
+    Used to determine which parameters to use and which actions to take at various stages of the state machine.
+    """
+
+    PACKAGE_DELIVERY_CUASC = 0  # Mission for delivering cube onto the bullseye. Drone will land and take off autonomously.
+    PAYLOAD_DROP_CUASC = 1  # Mission for dropping beanbag onto the bullseye. Drone remains in air the entire time.
+    GCP_MARKER_ALIGNING_CUASC = (
+        2  # Mission for drone only aligning to GCP points and not doing anything else.
+    )
+    PAYLOAD_DELIVERY_SUAS = 3  # Mission for delivering water bottle/strobe beacon to detected object on the ground. Drone stays in the air the entire time.
+
+
 class OacState(Enum):
     """
     Implements the state machine diagram shown on the Object Alignment Controller Miro board
@@ -103,10 +117,8 @@ class ObjectAlignmentController(Node):
         ### ROS2 PARAMETERS
 
         # Declare and get the package delivery mission parameter
-        self.declare_parameter("doing_package_delivery_mission", True)
-        self.doing_package_delivery_mission = self.get_parameter(
-            "doing_package_delivery_mission"
-        ).value
+        self.declare_parameter("current_mission", 0)
+        self.current_mission = self.get_parameter("current_mission").value
 
         # Declare and get altitude parameters
         self.declare_parameter("descent_alignment_altitude", 5.0)
@@ -118,9 +130,6 @@ class ObjectAlignmentController(Node):
         self.hardcoded_drop_altitude = cast(
             float, self.get_parameter("hardcoded_drop_altitude").value
         )
-
-        self.declare_parameter("suas_competition", False)
-        self.suas_competition = cast(bool, self.get_parameter("suas_competition").value)
 
         ###
 
@@ -154,7 +163,7 @@ class ObjectAlignmentController(Node):
             return
 
         if target_position.object_label != "Bullseye":
-            self.get_logger().info("The detected object is not a Bulleye. Ignoring.")
+            self.get_logger().info("The detected object is not a Bullseye. Ignoring.")
             return
 
         # if this is the first target we have seen, reset the timer
@@ -246,11 +255,11 @@ class ObjectAlignmentController(Node):
                     < 0.25
                 ):
                     # if at descent altitude, either start landing or run payload drop
-                    if self.doing_package_delivery_mission:
+                    if self.current_mission == Mission.PACKAGE_DELIVERY_CUASC.value:
                         self.send_new_mode(ArduPilotMode.LAND)
                         self.state = OacState.LANDING
                         self.get_logger().info(f"Switching state to {self.state.name}")
-                    else:
+                    elif self.current_mission == Mission.PACKAGE_DELIVERY_CUASC.value:
                         # TODO: Call payload drop script
                         self.time_marker = self.get_clock().now()
 
