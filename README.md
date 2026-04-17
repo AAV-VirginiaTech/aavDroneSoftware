@@ -68,14 +68,33 @@ This acts as a bridge between our software and either the simulation or the actu
 
 ## Launch Files (Run the software!)
 ### aav_simulation_launch
-Used to run the full software setup with Gazebo, yolo, and AAV Software Nodes. Run this on a computer with Ubuntu Linux and an NVIDIA Graphics card.
+Used to run the full software setup with Gazebo, yolo, and AAV Software Nodes. Run this on a computer with Ubuntu Linux and an NVIDIA Graphics card. You can edit the launch file directly in order to try out different missions.
 #### Command:
-ros2 launch aav_bringup aav_simulation_launch
+ros2 launch aav_bringup aav_simulation_launch.py
 
-### aav_drone_launch
+### aav_drone_cuasc_package_delivery_drone_launch
 Used to run the software needed on the actual drone. Runs yolo and AAV Software Nodes. Run this on the Jetson located on the drone itself.
+Runs the package delivery mission for the C-UASC competition
 #### Command:
-ros2 launch aav_bringup aav_drone_launch
+ros2 launch aav_bringup aav_drone_cuasc_package_delivery_drone_launch.py
+
+### aav_drone_cuasc_payload_drop_launch
+Used to run the software needed on the actual drone. Runs yolo and AAV Software Nodes. Run this on the Jetson located on the drone itself.
+Runs the payload drop mission for the C-UASC competition
+#### Command:
+ros2 launch aav_bringup aav_drone_cuasc_payload_drop_launch.py
+
+### aav_drone_cuasc_gcp_marker_detection_launch
+Used to run the software needed on the actual drone. Runs yolo and AAV Software Nodes. Run this on the Jetson located on the drone itself.
+Runs the gcp marker mission for the C-UASC competition
+#### Command:
+ros2 launch aav_bringup aav_drone_cuasc_gcp_marker_detection_launch.py
+
+### aav_drone_suas_launch
+Used to run the software needed on the actual drone. Runs yolo and AAV Software Nodes. Run this on the Jetson located on the drone itself.
+Runs the search and rescue mission for the SUAS competition
+#### Command:
+ros2 launch aav_bringup aav_drone_suas_launch.py
 
 ## Setup and Run Simulation
 [Follow Slideshow Tutorial](https://docs.google.com/presentation/d/1nkopkXmOMbf2FSYXp7-02WSqbt8vuJUTEI2T_HQRqNE/edit?usp=sharing)
