@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from enum import Enum
+from typing import Optional, cast
 
 import rclpy
 from aav_msgs.msg import DronePosition, Mode, NewDronePosition, TargetPosition
@@ -95,9 +96,9 @@ class ObjectAlignmentController(Node):
 
         self.current_mode = ArduPilotMode.AUTO
         self.guided_mode_request_in_flight = False
-        self.current_gps_position = None
+        self.current_gps_position: Optional[DronePosition] = None
 
-        self.last_target_position = None
+        self.last_target_position: Optional[NewDronePosition] = None
 
         ### ROS2 PARAMETERS
 
@@ -109,17 +110,17 @@ class ObjectAlignmentController(Node):
 
         # Declare and get altitude parameters
         self.declare_parameter("descent_alignment_altitude", 5.0)
-        self.descent_alignment_altitude = self.get_parameter(
-            "descent_alignment_altitude"
-        ).value
+        self.descent_alignment_altitude = cast(
+            float, self.get_parameter("descent_alignment_altitude").value
+        )
 
         self.declare_parameter("hardcoded_drop_altitude", 3.0)
-        self.hardcoded_drop_altitude = self.get_parameter(
-            "hardcoded_drop_altitude"
-        ).value
+        self.hardcoded_drop_altitude = cast(
+            float, self.get_parameter("hardcoded_drop_altitude").value
+        )
 
         self.declare_parameter("suas_competition", False)
-        self.suas_competition = self.get_parameter("suas_competition").value
+        self.suas_competition = cast(bool, self.get_parameter("suas_competition").value)
 
         ###
 
@@ -161,14 +162,18 @@ class ObjectAlignmentController(Node):
             self.time_marker = self.get_clock().now()
 
         if self.state == OacState.SEEKING:
+            if not self.current_gps_position:
+                self.get_logger().warning(
+                    "Current GPS position unavailable; cannot publish target position."
+                )
+                return
+
             new_position = NewDronePosition()
             new_position.latitude = target_position.latitude
             new_position.longitude = target_position.longitude
-
             new_position.altitude = float(self.current_gps_position.altitude)
 
             self.last_target_position = new_position
-
             self.new_position_pub.publish(new_position)
         elif self.state == OacState.ALIGNED_DESCENDING:
             new_position = NewDronePosition()
@@ -199,39 +204,42 @@ class ObjectAlignmentController(Node):
                     self.get_logger().info(f"Switching state to {self.state.name}")
 
             case OacState.ALIGNED_DESCENDING:
-                # within .25m of drop altitude, check timer
-                if (
-                    abs(
-                        self.current_gps_position.altitude
-                        - self.descent_alignment_altitude
-                    )
-                    < 0.25
-                ):
-                    # allow 8 seconds for final alignment
-                    if (
-                        self.get_clock().now() - self.time_marker
-                        < ObjectAlignmentController.DESCENT_ALIGNMENT_DURATION
-                    ):
-                        pass
-                    # if the timer has expired, move on to final descent
-                    else:
-                        new_position = NewDronePosition()
-                        new_position.longitude = self.current_gps_position.longitude
-                        new_position.latitude = self.current_gps_position.latitude
-                        new_position.altitude = self.hardcoded_drop_altitude
-                        self.new_position_pub.publish(new_position)
-
-                        self.state = OacState.FINAL_DESCENDING
-                        self.get_logger().info(f"Switching state to {self.state.name}")
-                # not within range of drop altitude, reset the timer
-                else:
+                if not self.current_gps_position:
                     self.time_marker = self.get_clock().now()
+                else:
+                    # within .25m of drop altitude, check timer
+                    if (
+                        abs(
+                            float(self.current_gps_position.altitude)
+                            - float(self.descent_alignment_altitude)
+                        )
+                        < 0.25
+                    ):
+                        # allow 8 seconds for final alignment
+                        if (
+                            self.get_clock().now() - self.time_marker
+                            < ObjectAlignmentController.DESCENT_ALIGNMENT_DURATION
+                        ):
+                            pass
+                        # if the timer has expired, move on to final descent
+                        else:
+                            new_position = NewDronePosition()
+                            new_position.longitude = self.current_gps_position.longitude
+                            new_position.latitude = self.current_gps_position.latitude
+                            new_position.altitude = self.hardcoded_drop_altitude
+                            self.new_position_pub.publish(new_position)
+
+                            self.state = OacState.FINAL_DESCENDING
+                            self.get_logger().info(f"Switching state to {self.state.name}")
+                    # not within range of drop altitude, reset the timer
+                    else:
+                        self.time_marker = self.get_clock().now()
 
             case OacState.FINAL_DESCENDING:
-                if (
+                if self.current_gps_position and (
                     abs(
-                        self.current_gps_position.altitude
-                        - self.hardcoded_drop_altitude
+                        float(self.current_gps_position.altitude)
+                        - float(self.hardcoded_drop_altitude)
                     )
                     < 0.25
                 ):

@@ -166,11 +166,12 @@ class ManavsMagicCode(Node):
         self.craft.yaw = float(msg_in.yaw)
 
     def update_targ_gps(self, msg_in: DetectionArray):
-        if len(msg_in.detections) == 0:
+        detections = list(msg_in.detections)
+        if len(detections) == 0:
             return
 
         # Assume first detection for now
-        det = msg_in.detections[0]
+        det = detections[0]
         center: Point2D = det.bbox.center.position
 
         # Normalize pixel coords
