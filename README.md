@@ -106,6 +106,14 @@ Runs the search and rescue mission for the SUAS competition
 ros2 launch aav_bringup aav_drone_suas_launch.py
 ```
 
+### aav_drone_manual_suas_launch
+Used to run the software needed on the actual drone. Runs yolo and AAV Software Nodes. Run this on the Jetson located on the drone itself.
+This disables any autonomous aligning logic. Used for manual alignment.
+#### Command:
+```
+ros2 launch aav_bringup aav_drone_manual_suas_launch.py
+```
+
 ## Setup and Run Simulation
 [Follow Slideshow Tutorial](https://docs.google.com/presentation/d/1nkopkXmOMbf2FSYXp7-02WSqbt8vuJUTEI2T_HQRqNE/edit?usp=sharing)
 
