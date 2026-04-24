@@ -232,7 +232,6 @@ class ObjectAlignmentController(Node):
                             pass
                         # if the timer has expired, move on to final descent
                         else:
-
                             self.state = OacState.FINAL_DESCENDING
                             self.get_logger().info(
                                 f"Switching state to {self.state.name}"
@@ -262,10 +261,11 @@ class ObjectAlignmentController(Node):
                         self.get_logger().info(f"Switching state to {self.state.name}")
                 else:
                     new_position = NewDronePosition()
-                    new_position.longitude = self.current_gps_position.longitude
-                    new_position.latitude = self.current_gps_position.latitude
-                    new_position.altitude = self.hardcoded_drop_altitude
-                    self.new_position_pub.publish(new_position)
+                    if self.current_gps_position:
+                        new_position.longitude = self.current_gps_position.longitude
+                        new_position.latitude = self.current_gps_position.latitude
+                        new_position.altitude = self.hardcoded_drop_altitude
+                        self.new_position_pub.publish(new_position)
 
             case OacState.DROPPING_PAYLOAD:
                 if (
