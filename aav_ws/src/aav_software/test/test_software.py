@@ -14,6 +14,7 @@ from aav_software.manavs_magic_code import (
 )
 from aav_software.object_alignment_controller import (
     ArduPilotMode,
+    Mission,
     OacState,
     ObjectAlignmentController,
 )
@@ -152,6 +153,7 @@ def test_target_position_callback_requests_guided_mode_once_when_not_guided():
     controller_any = cast(Any, controller)
     controller_any.state = OacState.SEEKING
     controller_any.current_mode = ArduPilotMode.AUTO
+    controller_any.current_mission = Mission.PACKAGE_DELIVERY_CUASC.value
     controller_any.guided_mode_request_in_flight = False
     controller_any.send_new_mode = Mock()
     publisher = CapturingPublisher()
@@ -203,6 +205,7 @@ def test_update_state_machine_seeking_to_aligned_descending():
     controller = ObjectAlignmentController.__new__(ObjectAlignmentController)
     controller_any = cast(Any, controller)
     controller_any.state = OacState.SEEKING
+    controller_any.current_mission = Mission.PACKAGE_DELIVERY_CUASC.value
     controller_any.last_target_position = NewDronePosition()
     controller_any.current_gps_position = make_drone_position(37.0, -80.0, 20.0)
     controller_any.time_marker = FakeTime(0)
@@ -219,16 +222,14 @@ def test_update_state_machine_seeking_to_aligned_descending():
 def test_update_state_machine_aligned_descending_to_final_descending():
     controller = ObjectAlignmentController.__new__(ObjectAlignmentController)
     controller_any = cast(Any, controller)
-    controller_any.state = OacState.ALIGNED_DESCENDING
+    controller_any.state = OacState.FINAL_DESCENDING
+    controller_any.current_mission = Mission.PACKAGE_DELIVERY_CUASC.value
     controller_any.descent_alignment_altitude = 5.0
     controller_any.hardcoded_drop_altitude = 3.0
     controller_any.current_gps_position = make_drone_position(37.2295, -80.4138, 5.0)
     controller_any.time_marker = FakeTime(0)
     publisher = CapturingPublisher()
     controller_any.new_position_pub = publisher
-    controller_any.get_clock = lambda: FakeClock(
-        ObjectAlignmentController.DESCENT_ALIGNMENT_DURATION.nanoseconds + 1
-    )
     controller_any.get_logger = lambda: FakeLogger()
 
     controller.update_state_machine()
