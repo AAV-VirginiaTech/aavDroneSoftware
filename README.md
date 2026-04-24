@@ -12,8 +12,8 @@ This was inspired by a Duke Robotics Repo linked [HERE](https://github.com/DukeR
 This repository serves as the main development environment for the AAV Drone
 
 ### Software Implementation Summaries
-[C-UASC Summary](https://docs.google.com/document/d/1i0-yuOBz0uaueun8jnia9QPYaHs8-D_kmw1PnQ6_2wI/edit?usp=sharing)
-[SUAS Summary](https://docs.google.com/document/d/1u48MPF5nE5hkrVeKE1iGp-DRbENpCMyZmo32L6hcvU8/edit?usp=sharing)
+- [C-UASC Summary](https://docs.google.com/document/d/1i0-yuOBz0uaueun8jnia9QPYaHs8-D_kmw1PnQ6_2wI/edit?usp=sharing)
+- [SUAS Summary](https://docs.google.com/document/d/1u48MPF5nE5hkrVeKE1iGp-DRbENpCMyZmo32L6hcvU8/edit?usp=sharing)
 
 ## Develop in Docker
 
