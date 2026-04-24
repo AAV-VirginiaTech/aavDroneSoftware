@@ -165,7 +165,7 @@ class ObjectAlignmentController(Node):
         if (
             self.current_mode != ArduPilotMode.GUIDED
             and self.current_mission != Mission.PAYLOAD_DELIVERY_SUAS.value
-            and self.current_mission != Mission.GCP_MARKER_ALIGNING_CUAS.value
+            and self.current_mission != Mission.GCP_MARKER_ALIGNING_CUASC.value
         ):
             if not self.guided_mode_request_in_flight:
                 self.send_new_mode(ArduPilotMode.GUIDED)
@@ -283,7 +283,7 @@ class ObjectAlignmentController(Node):
             case OacState.DROPPING_PAYLOAD:
                 if (
                     self.get_clock().now() - self.time_marker
-                    > ObjectAlignmentController.SUBSTRUCTURE_ACTION_DURATION
+                    > self.substructure_action_duration
                 ):
                     self.send_new_mode(ArduPilotMode.AUTO)
 
@@ -309,7 +309,7 @@ class ObjectAlignmentController(Node):
                             pass
                     else:
                         # TODO: Call normal package drop script
-                        self.get_logger().info("Dropping CUAS package")
+                        self.get_logger().info("Dropping CUASC package")
                         pass
 
                     self.time_marker = self.get_clock().now()
@@ -319,7 +319,7 @@ class ObjectAlignmentController(Node):
             case OacState.DROPPING_PACKAGE:
                 if (
                     self.get_clock().now() - self.time_marker
-                    > ObjectAlignmentController.SUBSTRUCTURE_ACTION_DURATION
+                    > self.substructure_action_duration
                 ):
                     self.send_new_mode(ArduPilotMode.TAKEOFF)
 
