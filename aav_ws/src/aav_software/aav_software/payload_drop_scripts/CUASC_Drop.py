@@ -82,7 +82,7 @@ class ServoCommandClient:
 
 def run_payload_drop_sequence(
     node: Node,
-    servo_instance: int = 8,
+    servo_instance: int = 2,
     start_pwm: float = 800.0,
     target_pwm: float = 1600.0,
     return_pwm: float = 800.0,
@@ -139,7 +139,7 @@ def main(args=None):
 
     # Optional command-line usage:
     # python3 servo_command_node.py <servo_instance> <start_pwm> <target_pwm> <return_pwm> <hold_sec> <jump|ramp>
-    servo_instance = 8
+    servo_instance = 2
     start_pwm = 800.0
     target_pwm = 1600.0
     return_pwm = 800.0
