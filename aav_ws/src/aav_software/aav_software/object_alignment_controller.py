@@ -162,10 +162,6 @@ class ObjectAlignmentController(Node):
                 self.guided_mode_request_in_flight = True
             return
 
-        if target_position.object_label != "Bullseye":
-            self.get_logger().info("The detected object is not a Bullseye. Ignoring.")
-            return
-
         # if this is the first target we have seen, reset the timer
         if not self.last_target_position:
             self.time_marker = self.get_clock().now()
@@ -200,7 +196,11 @@ class ObjectAlignmentController(Node):
     def update_state_machine(self):
         match self.state:
             case OacState.SEEKING:
-                if not self.last_target_position or not self.current_gps_position:
+                if (
+                    not self.last_target_position
+                    or not self.current_gps_position
+                    or self.current_mission == Mission.GCP_MARKER_ALIGNING_CUASC.value
+                ):
                     # if we have seen no targets, or the gps is not connected, reset the timer
                     self.time_marker = self.get_clock().now()
                 elif (
