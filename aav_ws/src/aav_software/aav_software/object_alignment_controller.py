@@ -317,8 +317,11 @@ class ObjectAlignmentController(Node):
                 if self.current_gps_position and float(
                     self.current_gps_position.altitude
                 ) < float(ObjectAlignmentController.LANDING_THRESHOLD_ALTITUDE):
-                    # TODO: Call normal package drop script
                     self.get_logger().info("Dropping CUASC package")
+                    try:
+                        run_payload_drop_sequence(self)
+                    except Exception as exc:
+                        self.get_logger().error(f"Payload drop sequence failed: {exc}")
 
                     self.time_marker = self.get_clock().now()
                     self.state = OacState.DROPPING_PACKAGE
