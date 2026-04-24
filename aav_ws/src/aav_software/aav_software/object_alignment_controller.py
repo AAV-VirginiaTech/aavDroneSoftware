@@ -272,6 +272,19 @@ class ObjectAlignmentController(Node):
 
                         self.state = OacState.DROPPING_PAYLOAD
                         self.get_logger().info(f"Switching state to {self.state.name}")
+                    elif self.current_mission == Mission.PAYLOAD_DELIVERY_SUAS.value:
+                        if self.last_target_label == "manikin":
+                            # TODO: Call water bottle drop script
+                            self.get_logger().info("Dropping water bottle")
+                            pass
+                        else:
+                            # TODO: Call beacon drop script
+                            self.get_logger().info("Dropping beacon")
+                            pass
+
+                        self.state = OacState.DROPPING_PAYLOAD
+                        self.get_logger().info(f"Switching state to {self.state.name}")
+
                 else:
                     new_position = NewDronePosition()
                     if self.current_gps_position:
@@ -298,19 +311,8 @@ class ObjectAlignmentController(Node):
                 if self.current_gps_position and float(
                     self.current_gps_position.altitude
                 ) < float(ObjectAlignmentController.LANDING_THRESHOLD_ALTITUDE):
-                    if self.current_mission == Mission.PAYLOAD_DELIVERY_SUAS:
-                        if self.last_target_label == "manikin":
-                            # TODO: Call water bottle drop script
-                            self.get_logger().info("Dropping water bottle")
-                            pass
-                        else:
-                            # TODO: Call beacon drop script
-                            self.get_logger().info("Dropping beacon")
-                            pass
-                    else:
-                        # TODO: Call normal package drop script
-                        self.get_logger().info("Dropping CUASC package")
-                        pass
+                    # TODO: Call normal package drop script
+                    self.get_logger().info("Dropping CUASC package")
 
                     self.time_marker = self.get_clock().now()
                     self.state = OacState.DROPPING_PACKAGE
