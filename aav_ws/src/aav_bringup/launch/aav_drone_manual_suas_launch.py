@@ -38,6 +38,11 @@ def generate_launch_description():
         executable="topic_converter_for_drone",
     )
 
+    location_logger = Node(
+        package="aav_software",
+        executable="location_logger",
+    )
+
     # YOLO.
     yolo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -58,6 +63,7 @@ def generate_launch_description():
     )
 
     ld.add_action(drone_mavros_and_camera_boot_launch)
+    ld.add_action(location_logger)
     ld.add_action(manavs_magic_code)
     ld.add_action(topic_converter)
     ld.add_action(yolo)
