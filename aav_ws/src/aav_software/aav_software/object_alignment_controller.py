@@ -78,7 +78,6 @@ class OacState(Enum):
 
 
 class ObjectAlignmentController(Node):
-    SUBSTRUCTURE_ACTION_DURATION = Duration(seconds=5)
     SEEK_ALIGNMENT_DURATION = Duration(seconds=30)
     DESCENT_ALIGNMENT_DURATION = Duration(seconds=12)
 
@@ -113,6 +112,7 @@ class ObjectAlignmentController(Node):
         self.current_gps_position: Optional[DronePosition] = None
 
         self.last_target_position: Optional[NewDronePosition] = None
+        self.last_target_label: Optional[str] = None
 
         ### ROS2 PARAMETERS
 
@@ -129,6 +129,12 @@ class ObjectAlignmentController(Node):
         self.declare_parameter("hardcoded_drop_altitude", 3.0)
         self.hardcoded_drop_altitude = cast(
             float, self.get_parameter("hardcoded_drop_altitude").value
+        )
+
+        # Declare and get the substructure action duration mission parameter
+        self.declare_parameter("substructure_action_duration", 5)
+        self.substructure_action_duration = Duration(
+            seconds=self.get_parameter("substructure_action_duration").value
         )
 
         ###
@@ -156,11 +162,17 @@ class ObjectAlignmentController(Node):
         if self.state not in (OacState.SEEKING, OacState.ALIGNED_DESCENDING):
             return
 
-        if self.current_mode != ArduPilotMode.GUIDED:
+        if (
+            self.current_mode != ArduPilotMode.GUIDED
+            and self.current_mission != Mission.PAYLOAD_DELIVERY_SUAS.value
+            and self.current_mission != Mission.GCP_MARKER_ALIGNING_CUAS.value
+        ):
             if not self.guided_mode_request_in_flight:
                 self.send_new_mode(ArduPilotMode.GUIDED)
                 self.guided_mode_request_in_flight = True
             return
+
+        self.last_target_label = target_position.object_label
 
         # if this is the first target we have seen, reset the timer
         if not self.last_target_position:
@@ -255,6 +267,7 @@ class ObjectAlignmentController(Node):
                         self.get_logger().info(f"Switching state to {self.state.name}")
                     elif self.current_mission == Mission.PAYLOAD_DROP_CUASC.value:
                         # TODO: Call payload drop script
+                        self.get_logger().info("Dropping payload")
                         self.time_marker = self.get_clock().now()
 
                         self.state = OacState.DROPPING_PAYLOAD
@@ -274,14 +287,31 @@ class ObjectAlignmentController(Node):
                 ):
                     self.send_new_mode(ArduPilotMode.AUTO)
 
-                    self.state = OacState.RETURNING
-                    self.get_logger().info(f"Switching state to {self.state.name}")
+                    if self.current_mission != Mission.PAYLOAD_DELIVERY_SUAS:
+                        self.state = OacState.RETURNING
+                        self.get_logger().info(f"Switching state to {self.state.name}")
+                    else:
+                        self.state = OacState.SEEKING
+                        self.get_logger().info(f"Switching state to {self.state.name}")
 
             case OacState.LANDING:
                 if self.current_gps_position and float(
                     self.current_gps_position.altitude
                 ) < float(ObjectAlignmentController.LANDING_THRESHOLD_ALTITUDE):
-                    # TODO: Call package drop script
+                    if self.current_mission == Mission.PAYLOAD_DELIVERY_SUAS:
+                        if self.last_target_label == "manikin":
+                            # TODO: Call water bottle drop script
+                            self.get_logger().info("Dropping water bottle")
+                            pass
+                        else:
+                            # TODO: Call beacon drop script
+                            self.get_logger().info("Dropping beacon")
+                            pass
+                    else:
+                        # TODO: Call normal package drop script
+                        self.get_logger().info("Dropping CUAS package")
+                        pass
+
                     self.time_marker = self.get_clock().now()
                     self.state = OacState.DROPPING_PACKAGE
                     self.get_logger().info(f"Switching state to {self.state.name}")
