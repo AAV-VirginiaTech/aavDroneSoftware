@@ -130,6 +130,7 @@ def generate_launch_description():
             {"current_mission": Mission.PACKAGE_DELIVERY_CUASC.value},
             {"descent_alignment_altitude": 5.0},
             {"hardcoded_drop_altitude": 3.0},
+            {"substructure_action_duration": 5},
         ],
     )
 

@@ -41,6 +41,7 @@ def generate_launch_description():
             {"current_mission": Mission.PAYLOAD_DELIVERY_SUAS.value},
             {"descent_alignment_altitude": 46.3},
             {"hardcoded_drop_altitude": 46.3},
+            {"substructure_action_duration": 20},
         ],
     )
 
