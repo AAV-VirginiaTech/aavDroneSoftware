@@ -298,7 +298,7 @@ class ObjectAlignmentController(Node):
                     self.get_clock().now() - self.time_marker
                     > self.substructure_action_duration
                 ):
-                    if self.current_mission == Mission.PAYLOAD_DELIVERY_SUAS:
+                    if self.current_mission == Mission.PAYLOAD_DELIVERY_SUAS.value:
                         self.state = OacState.SEEKING
                         self.get_logger().info(f"Switching state to {self.state.name}")
                     else:
