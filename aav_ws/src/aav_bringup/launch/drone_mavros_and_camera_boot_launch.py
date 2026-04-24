@@ -111,13 +111,6 @@ def generate_launch_description():
                 "gcs_url": "",
                 "tgt_system": 1,
                 "tgt_component": 1,
-                "plugin_allowlist": [
-                    "sys_status",
-                    "global_position",
-                    "local_position",
-                    "setpoint_position",
-                    "command",
-                ],
             }
         ],
     )
