@@ -134,7 +134,7 @@ class ObjectAlignmentController(Node):
         # Declare and get the substructure action duration mission parameter
         self.declare_parameter("substructure_action_duration", 5)
         self.substructure_action_duration = Duration(
-            seconds=self.get_parameter("substructure_action_duration").value
+            seconds=cast(int, self.get_parameter("substructure_action_duration").value)
         )
 
         ###
