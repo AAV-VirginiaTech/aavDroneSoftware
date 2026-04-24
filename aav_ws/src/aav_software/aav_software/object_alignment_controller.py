@@ -298,13 +298,12 @@ class ObjectAlignmentController(Node):
                     self.get_clock().now() - self.time_marker
                     > self.substructure_action_duration
                 ):
-                    self.send_new_mode(ArduPilotMode.AUTO)
-
-                    if self.current_mission != Mission.PAYLOAD_DELIVERY_SUAS:
-                        self.state = OacState.RETURNING
+                    if self.current_mission == Mission.PAYLOAD_DELIVERY_SUAS:
+                        self.state = OacState.SEEKING
                         self.get_logger().info(f"Switching state to {self.state.name}")
                     else:
-                        self.state = OacState.SEEKING
+                        self.send_new_mode(ArduPilotMode.AUTO)
+                        self.state = OacState.RETURNING
                         self.get_logger().info(f"Switching state to {self.state.name}")
 
             case OacState.LANDING:
