@@ -254,7 +254,7 @@ class ObjectAlignmentController(Node):
                         self.send_new_mode(ArduPilotMode.LAND)
                         self.state = OacState.LANDING
                         self.get_logger().info(f"Switching state to {self.state.name}")
-                    elif self.current_mission == Mission.PACKAGE_DELIVERY_CUASC.value:
+                    elif self.current_mission == Mission.PAYLOAD_DROP_CUASC.value:
                         # TODO: Call payload drop script
                         self.time_marker = self.get_clock().now()
 
