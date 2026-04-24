@@ -273,6 +273,7 @@ class ObjectAlignmentController(Node):
                         self.state = OacState.DROPPING_PAYLOAD
                         self.get_logger().info(f"Switching state to {self.state.name}")
                     elif self.current_mission == Mission.PAYLOAD_DELIVERY_SUAS.value:
+                        self.time_marker = self.get_clock().now()
                         if self.last_target_label == "manikin":
                             # TODO: Call water bottle drop script
                             self.get_logger().info("Dropping water bottle")
