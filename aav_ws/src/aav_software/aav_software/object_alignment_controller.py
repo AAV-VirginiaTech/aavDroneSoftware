@@ -7,7 +7,7 @@ from aav_msgs.msg import DronePosition, Mode, NewDronePosition, TargetPosition
 from rclpy.clock import Duration
 from rclpy.node import Node
 
-from .payload_drop_scripts.CUASC_Drop import run_payload_drop_sequence
+from .payload_drop import run_payload_drop_sequence
 from .topic_converter_for_simulation import ArduPilotMode
 
 # Finite State Machine Diagram
