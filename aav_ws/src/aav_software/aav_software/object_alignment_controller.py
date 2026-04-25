@@ -269,7 +269,7 @@ class ObjectAlignmentController(Node):
                     elif self.current_mission == Mission.PAYLOAD_DROP_CUASC.value:
                         self.get_logger().info("Dropping payload")
                         try:
-                            run_payload_drop_sequence(self)
+                            run_payload_drop_sequence(self, True, 2000, 1)
                         except Exception as exc:
                             self.get_logger().error(
                                 f"Payload drop sequence failed: {exc}"
@@ -281,12 +281,24 @@ class ObjectAlignmentController(Node):
                     elif self.current_mission == Mission.PAYLOAD_DELIVERY_SUAS.value:
                         self.time_marker = self.get_clock().now()
                         if self.last_target_label == "manikin":
-                            # TODO: Call water bottle drop script
                             self.get_logger().info("Dropping water bottle")
+
+                            try:
+                                run_payload_drop_sequence(self, True, 2000, 2)
+                            except Exception as exc:
+                                self.get_logger().error(
+                                    f"Payload drop sequence failed: {exc}"
+                                )
+
                             pass
                         else:
-                            # TODO: Call beacon drop script
                             self.get_logger().info("Dropping beacon")
+                            try:
+                                run_payload_drop_sequence(self, True, 2000, 3)
+                            except Exception as exc:
+                                self.get_logger().error(
+                                    f"Payload drop sequence failed: {exc}"
+                                )
                             pass
 
                         self.state = OacState.DROPPING_PAYLOAD
@@ -319,7 +331,7 @@ class ObjectAlignmentController(Node):
                 ) < float(ObjectAlignmentController.LANDING_THRESHOLD_ALTITUDE):
                     self.get_logger().info("Dropping CUASC package")
                     try:
-                        run_payload_drop_sequence(self)
+                        run_payload_drop_sequence(self, False, 1500, 1)
                     except Exception as exc:
                         self.get_logger().error(f"Payload drop sequence failed: {exc}")
 
