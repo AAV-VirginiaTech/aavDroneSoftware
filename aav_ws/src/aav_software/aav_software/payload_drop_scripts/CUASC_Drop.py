@@ -9,17 +9,27 @@ Default behavior:
   5. Move back to return PWM
   6. Wait settle time
 
-Example:
-  ros2 run <your_pkg> servo_command_node_fixed --servo 2 --start 1000 --target 1600 --return-pwm 1000 --hold 1.0
+Example using physical Kore/Pixhawk-style board labels:
+  ros2 run <your_pkg> servo_command_node_fixed --output aux1 --start 1000 --target 1600 --return-pwm 1000 --hold 1.0
+
+Example using raw ArduPilot SERVOx numbering:
+  ros2 run <your_pkg> servo_command_node_fixed --servo 9 --start 1000 --target 1600 --return-pwm 1000 --hold 1.0
+
+Output mapping:
+  MAIN1-MAIN8 -> SERVO1-SERVO8
+  AUX1-AUX6   -> SERVO9-SERVO14
 
 Notes:
-  - MAV_CMD_DO_SET_SERVO param1 is the ArduPilot SERVO instance number, not always the physical pin label.
+  - MAV_CMD_DO_SET_SERVO param1 is the ArduPilot SERVO instance number.
+  - The physical board label, such as AUX1, is not always the same as the ArduPilot SERVOx number.
+  - On Kore/Pixhawk-style carrier boards, AUX1 normally maps to SERVO9, AUX2 to SERVO10, etc.
   - On Cube/Core carrier boards, confirm the physical output maps to the SERVOx instance you pass here.
 """
 
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 import time
 from dataclasses import dataclass
@@ -39,7 +49,8 @@ MAV_RESULT_IN_PROGRESS = 5
 
 @dataclass(frozen=True)
 class ServoSequenceConfig:
-    servo_instance: int = 2
+    servo_instance: int = 9
+    physical_output: str = "aux1"
     start_pwm: float = 1000.0
     target_pwm: float = 1600.0
     return_pwm: float = 1000.0
@@ -56,6 +67,62 @@ class ServoSequenceConfig:
 
 class ServoCommandError(RuntimeError):
     """Raised when MAVROS/ArduPilot rejects or fails a servo command."""
+
+
+def physical_output_to_servo_instance(output_label: str) -> int:
+    """
+    Convert a physical board output label into an ArduPilot SERVOx instance.
+
+    Examples:
+      main1 -> 1
+      main8 -> 8
+      aux1  -> 9
+      aux6  -> 14
+
+    This matches the common Cube/Pixhawk/Kore-style layout:
+      MAIN1-MAIN8 -> SERVO1-SERVO8
+      AUX1-AUX6   -> SERVO9-SERVO14
+    """
+    label = output_label.strip().lower().replace("_", "").replace("-", "")
+
+    match = re.fullmatch(r"(main|aux)(\d+)", label)
+    if not match:
+        raise ValueError(
+            f"Invalid output label '{output_label}'. Use labels like main1, main2, aux1, or aux6."
+        )
+
+    bank = match.group(1)
+    number = int(match.group(2))
+
+    if bank == "main":
+        if not 1 <= number <= 8:
+            raise ValueError("MAIN output must be in range main1 through main8")
+        return number
+
+    if bank == "aux":
+        if not 1 <= number <= 6:
+            raise ValueError("AUX output must be in range aux1 through aux6")
+        return 8 + number
+
+    # This should be unreachable because of the regex.
+    raise ValueError(f"Unsupported output bank: {bank}")
+
+
+def servo_instance_to_physical_output(servo_instance: int) -> str:
+    """
+    Convert an ArduPilot SERVOx instance back to the likely physical label.
+
+    Examples:
+      1  -> main1
+      8  -> main8
+      9  -> aux1
+      14 -> aux6
+    """
+    if 1 <= servo_instance <= 8:
+        return f"main{servo_instance}"
+    if 9 <= servo_instance <= 14:
+        return f"aux{servo_instance - 8}"
+    return f"servo{servo_instance}"
 
 
 class ServoCommandClient:
@@ -104,15 +171,17 @@ class ServoCommandClient:
         if resp is None:
             raise ServoCommandError("No response from /mavros/cmd/command")
 
+        physical_output = servo_instance_to_physical_output(servo_instance)
         self.node.get_logger().info(
-            f"Set servo {servo_instance} to {pwm_us:.0f} us -> "
+            f"Set {physical_output.upper()} / SERVO{servo_instance} to {pwm_us:.0f} us -> "
             f"success={resp.success}, result={resp.result}"
         )
 
         # MAVROS success should normally be true and result should be MAV_RESULT_ACCEPTED.
         if not resp.success or resp.result != MAV_RESULT_ACCEPTED:
             raise ServoCommandError(
-                f"Servo command rejected/failed: servo={servo_instance}, pwm={pwm_us}, "
+                f"Servo command rejected/failed: output={physical_output}, "
+                f"servo={servo_instance}, pwm={pwm_us}, "
                 f"success={resp.success}, result={resp.result}"
             )
 
@@ -123,9 +192,10 @@ class ServoCommandClient:
 
         self.node.get_logger().info(
             "Starting servo sequence: "
-            f"servo={config.servo_instance}, start={config.start_pwm:.0f}, "
-            f"target={config.target_pwm:.0f}, return={config.return_pwm:.0f}, "
-            f"hold={config.hold_sec:.2f}s, mode={config.mode}"
+            f"output={config.physical_output.upper()}, SERVO{config.servo_instance}, "
+            f"start={config.start_pwm:.0f}, target={config.target_pwm:.0f}, "
+            f"return={config.return_pwm:.0f}, hold={config.hold_sec:.2f}s, "
+            f"mode={config.mode}"
         )
 
         self.set_servo(
@@ -218,15 +288,17 @@ def estimate_active_time(config: ServoSequenceConfig) -> float:
 
 def run_payload_drop_sequence(
     node: Node,
-    servo_instance: int = 2,
+    output: str = "aux1",
     start_pwm: float = 1000.0,
     target_pwm: float = 1600.0,
     return_pwm: float = 1000.0,
     hold_sec: float = 1.0,
     mode: str = "jump",
 ) -> None:
+    servo_instance = physical_output_to_servo_instance(output)
     config = ServoSequenceConfig(
         servo_instance=servo_instance,
+        physical_output=output.strip().lower(),
         start_pwm=start_pwm,
         target_pwm=target_pwm,
         return_pwm=return_pwm,
@@ -250,12 +322,28 @@ def parse_args(argv: list[str]) -> ServoSequenceConfig:
     parser = argparse.ArgumentParser(
         description="Command a MAVROS/ArduPilot servo output for payload release."
     )
-    parser.add_argument(
+
+    output_group = parser.add_mutually_exclusive_group()
+    output_group.add_argument(
+        "--output",
+        type=str,
+        default="aux1",
+        help=(
+            "Physical board output label, such as main1, main2, aux1, or aux6. "
+            "Default: aux1. Kore/Pixhawk-style mapping is MAIN1-MAIN8 -> SERVO1-SERVO8 "
+            "and AUX1-AUX6 -> SERVO9-SERVO14."
+        ),
+    )
+    output_group.add_argument(
         "--servo",
         type=int,
-        default=2,
-        help="ArduPilot SERVOx instance number, default: 2",
+        default=None,
+        help=(
+            "Raw ArduPilot SERVOx instance number. This bypasses physical label conversion. "
+            "Example: --servo 9 is usually AUX1."
+        ),
     )
+
     parser.add_argument(
         "--start",
         type=float,
@@ -334,8 +422,16 @@ def parse_args(argv: list[str]) -> ServoSequenceConfig:
     if unknown:
         print(f"Ignoring unknown ROS arguments: {unknown}", file=sys.stderr)
 
+    if parsed.servo is not None:
+        servo_instance = parsed.servo
+        physical_output = servo_instance_to_physical_output(servo_instance)
+    else:
+        physical_output = parsed.output.strip().lower()
+        servo_instance = physical_output_to_servo_instance(physical_output)
+
     config = ServoSequenceConfig(
-        servo_instance=parsed.servo,
+        servo_instance=servo_instance,
+        physical_output=physical_output,
         start_pwm=parsed.start,
         target_pwm=parsed.target,
         return_pwm=parsed.return_pwm,
@@ -365,6 +461,9 @@ def main(args=None) -> int:
     node = None
     try:
         node = ServoCommander(service_timeout_sec=config.service_timeout_sec)
+        node.get_logger().info(
+            f"Using physical output {config.physical_output.upper()} as SERVO{config.servo_instance}"
+        )
         node.get_logger().info(
             f"Estimated sequence time excluding service latency: {estimate_active_time(config):.2f}s"
         )
