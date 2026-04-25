@@ -1,7 +1,8 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, ExecuteProcess, TimerAction
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
+from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
@@ -115,6 +116,18 @@ def generate_launch_description():
                             ("/camera/camera_info", "/siyi_a8/camera_info"),
                         ],
                     )
+                ],
+            ),
+            Node(
+                package="rviz2",
+                executable="rviz2",
+                name="aavrviz",
+                output="screen",
+                arguments=[
+                    "-d",
+                    PathJoinSubstitution(
+                        [FindPackageShare("aav_bringup"), "launch", "aavrviz.rviz"]
+                    ),
                 ],
             ),
         ]
