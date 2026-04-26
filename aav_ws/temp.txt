@@ -1,16 +1,24 @@
-pip uninstall -y torch torchvision torchaudio
-pip cache purge
+# 1. Cleanup broken generic installations
+pip uninstall -y torch torchvision torchaudio ultralytics && pip cache purge
 
+# 2. Install JetPack 6 system dependencies
+sudo apt-get update && sudo apt-get install -y \
+  libopenblas-dev libopenmpi-dev libomp-dev \
+  libjpeg-dev zlib1g-dev libpython3-dev \
+  libavcodec-dev libavformat-dev libswscale-dev \
+  libpng-dev libtiff-dev
 
-sudo apt-get update
-sudo apt-get install -y libopenblas-dev libopenmpi-dev libomp-dev libjpeg-dev zlib1g-dev libpython3-dev libavcodec-dev libavformat-dev libswscale-dev
+# 3. Install the specific NVIDIA-compiled PyTorch 2.4.0 for JetPack 6.0
+# This wheel is built specifically for your L4T 36.3.0 / CUDA 12.2 environment
+pip install --no-cache-dir https://developer.download.nvidia.com/compute/redist/jp/v60/pytorch/torch-2.4.0a0+f70bd71a48.nv24.06.15634931-cp310-cp310-linux_aarch64.whl
 
+# 4. Build Torchvision v0.19.0 from source
+# This fixes the ROS "PackageNotFoundError" by properly registering metadata
+git clone --branch v0.19.0 https://github.com/pytorch/vision torchvision
+cd torchvision
+export BUILD_VERSION=0.19.0
+python3 setup.py install --user
+cd ..
 
-
-
-# This points to the index for JetPack 6 (jp6) and CUDA 12.2 (cu122)
-pip install --no-cache-dir --extra-index-url https://pypi.jetson-ai-lab.dev/jp6/cu122 torch torchvision
-
-
-
-python3 -c "import torch; import torchvision; print(f'CUDA available: {torch.cuda.is_available()}'); print(f'Device Name: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else \"None\"}'); print(f'Torchvision Version: {torchvision.__version__}')"
+# 5. Final Verification
+python3 -c "import torch; import torchvision; print('\n' + '='*20); print(f'CUDA available: {torch.cuda.is_available()}'); print(f'Device Name: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else \"NONE\"}'); print(f'Torchvision: {torchvision.__version__}'); print('='*20)"
