@@ -40,7 +40,7 @@ class TargPos:
 class Cam:
     """
     SIYI A8 Mini gimbaled camera.
-    Using 16:9 cropped resolution 640x360 and corresponding vertical FOV.
+    Using 16:9 resolution 1920x1080 and corresponding vertical FOV.
     Assumptions for this node:
       - Camera points straight down (nadir)
       - Camera yaw rotates with drone yaw
@@ -50,8 +50,8 @@ class Cam:
     def __init__(self):
         self.fov_hor = math.radians(81.0)
         self.fov_vert = math.radians(51.3)
-        self.x_res = 640
-        self.y_res = 360
+        self.x_res = 1920
+        self.y_res = 1080
         self.fov_hor_dist = 0.0
         self.fov_vert_dist = 0.0
 
