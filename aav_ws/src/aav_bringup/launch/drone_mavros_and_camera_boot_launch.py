@@ -112,7 +112,7 @@ def generate_launch_description():
                                 "image_encoding": "rgb8",
                                 "use_gst_timestamps": True,
                                 "sync_sink": False,
-                                "use_sensor_data_qos": False,
+                                "use_sensor_data_qos": True,
                             }
                         ],
                         remappings=[
