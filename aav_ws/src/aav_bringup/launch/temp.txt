@@ -1,3 +1,12 @@
+docker run --rm -it \
+  --runtime nvidia \
+  --network host \
+  --privileged \
+  -v ~/aavDroneSoftware:/workspace/aavDroneSoftware \
+  nvcr.io/nvidia/l4t-pytorch:r36.2.0-pth2.1-py3 \
+  bash
+
+
 python3 - <<'PY'
 import torch, torchvision
 print(torch.__version__)
