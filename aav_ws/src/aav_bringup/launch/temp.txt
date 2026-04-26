@@ -1,13 +1,5 @@
-export LD_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu/nvidia:$LD_LIBRARY_PATH
-
-
-
-
-
-echo 'export LD_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu/nvidia:$LD_LIBRARY_PATH' >> ~/.bashrc
-source ~/.bashrc
-
-
+pip3 install --extra-index-url https://developer.download.nvidia.com/compute/redist/jp \
+    torch==2.1.0 torchvision==0.16.0
 
 
 
