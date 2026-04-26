@@ -1,11 +1,15 @@
-pip3 uninstall torchvision -y
-
-
-pip3 install --no-cache-dir \
-https://developer.download.nvidia.com/compute/redist/jp/v60/pytorch/torchvision-0.19.0a0+nv24.05-cp310-cp310-linux_aarch64.whl
+pip3 uninstall -y torch torchvision torchaudio
+sudo apt remove -y python3-torchvision
 
 
 
+rm -rf ~/.local/lib/python3.10/site-packages/torch*
+rm -rf ~/.local/lib/python3.10/site-packages/torchvision*
+
+
+pip3 install ./torch-2.4.0a0+07cecf4168.nv24.05*.whl
+
+pip3 install torchvision==0.19.0 --no-deps
 
 
 python3 - << 'PY'
