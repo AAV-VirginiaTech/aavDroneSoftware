@@ -1,9 +1,16 @@
+# Uninstall the broken generic packages
 pip uninstall -y torch torchvision torchaudio
 
+# Clean up any cached pip files to prevent it from re-installing the wrong version
+pip cache purge
+
+
+sudo apt-get update
+sudo apt-get install -y libopenblas-base libopenmpi-dev libomp-dev libjpeg-dev zlib1g-dev
 
 
 pip install --no-cache-dir --extra-index-url https://pypi.jetson-ai-lab.dev/jp5/cu114 torch torchvision
 
 
 
-python3 -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}'); print(f'Device Name: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else \"None\"}')"
+python3 -c "import torch; import torchvision; print(f'CUDA available: {torch.cuda.is_available()}'); print(f'Torchvision version: {torchvision.__version__}'); print(f'Device: {torch.cuda.get_device_name(0)}')"
