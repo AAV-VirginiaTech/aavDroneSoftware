@@ -1,11 +1,15 @@
-pip3 install --extra-index-url https://developer.download.nvidia.com/compute/redist/jp \
-    torch==2.1.0 torchvision==0.16.0
+pip3 uninstall -y torch torchvision torchaudio
+
+wget https://developer.download.nvidia.com/compute/redist/jp/v60/pytorch/torch-2.4.0a0+07cecf4168.nv24.05.14710581-cp310-cp310-linux_aarch64.whl
+
+pip3 install ./torch-2.4.0a0+07cecf4168.nv24.05.14710581-cp310-cp310-linux_aarch64.whl
+
 
 
 
 python3 - <<'PY'
 import torch
-print("torch:", torch.__version__)
-print("cuda available:", torch.cuda.is_available())
-print("gpu:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "NONE")
+print(torch.__version__)
+print(torch.cuda.is_available())
+print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else "NONE")
 PY
