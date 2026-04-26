@@ -1,1 +1,1 @@
-python3 -c "import torch; print(torch.cuda.is_available())"
+pip uninstall -y torch torchvision ultralytics && pip install https://github.com/ultralytics/assets/releases/download/v0.0.0/torch-2.10.0-cp310-cp310-linux_aarch64.whl https://github.com/ultralytics/assets/releases/download/v0.0.0/torchvision-0.25.0-cp310-cp310-linux_aarch64.whl && pip install ultralytics[export]
