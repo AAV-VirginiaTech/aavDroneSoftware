@@ -3,7 +3,7 @@ from pathlib import Path
 from aav_software.object_alignment_controller import Mission
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription
+from launch.actions import IncludeLaunchDescription, TimerAction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import PathJoinSubstitution
 from launch_ros.actions import Node
@@ -14,8 +14,6 @@ def generate_launch_description():
     ld = LaunchDescription()
 
     aav_bringup = get_package_share_directory("aav_bringup")
-
-    # Add AAV Software nodes you want to launch here
 
     drone_mavros_and_camera_boot_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -48,7 +46,6 @@ def generate_launch_description():
         executable="topic_converter_for_drone",
     )
 
-    # YOLO.
     yolo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             [
@@ -71,10 +68,15 @@ def generate_launch_description():
         }.items(),
     )
 
+    delayed_yolo = TimerAction(
+        period=10.0,
+        actions=[yolo],
+    )
+
     ld.add_action(drone_mavros_and_camera_boot_launch)
     ld.add_action(manavs_magic_code)
     ld.add_action(object_alignment_controller)
     ld.add_action(topic_converter)
-    ld.add_action(yolo)
+    ld.add_action(delayed_yolo)
 
     return ld
