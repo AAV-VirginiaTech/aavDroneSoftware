@@ -1,10 +1,22 @@
-wget 
-raw.githubusercontent.com/pytorch/pytorch/5c6af2b583709f6176898c017424dc9981023c28/.ci/docker/
-common/install_cusparselt.sh 
-export CUDA_VERSION=12.1 # as an example   
-bash ./install_cusparselt.sh
+python3 -m pip uninstall -y torch torchvision torchaudio ultralytics
+python3 -m pip cache purge
 
-export TORCH_INSTALL=https://developer.download.nvidia.cn/compute/redist/jp/v511/pytorch/torch-2.0.0+nv23.05-cp38-cp38-linux_aarch64.whl
+sudo apt update
+sudo apt install -y python3-pip libopenblas-base libopenmpi-dev
 
-python3 -m pip install --upgrade pip; python3 -m pip install numpy==’1.26.1’; python3 -m pip install --no-cache $TORCH_INSTALL
+python3 -m pip install --upgrade pip setuptools wheel
 
+python3 -m pip install torch torchvision --index-url https://pypi.jetson-ai-lab.dev/jp6/cu126
+
+python3 -m pip install ultralytics --no-deps
+python3 -m pip install numpy opencv-python pillow pyyaml scipy matplotlib tqdm requests psutil pandas seaborn
+
+python3 - <<'PY'
+import torch
+print("torch:", torch.__version__)
+print("cuda available:", torch.cuda.is_available())
+print("cuda version:", torch.version.cuda)
+print("gpu:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "NONE")
+PY
+
+yolo predict model=yolo11n.pt source=https://ultralytics.com/images/bus.jpg device=0
