@@ -66,6 +66,7 @@ def generate_launch_description():
         launch_arguments={
             "model": str(Path(aav_bringup) / "aav_yolo_models" / "markers.pt"),
             "input_image_topic": "/siyi_a8/image_raw",
+            "use_sensor_data_qos": "true",
         }.items(),
     )
 
