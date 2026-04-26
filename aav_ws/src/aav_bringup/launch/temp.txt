@@ -1,1 +1,9 @@
-PKG=~/aavDroneSoftware/aav_ws/src/ardupilot_msgs; SRC=~/aavDroneSoftware/aav_ws/src; WS=~/aavDroneSoftware/aav_ws; if [ ! -d "$PKG" ]; then echo "Fetching ardupilot_msgs via sparse-checkout..."; tmp=/tmp/ardupilot_sparse; rm -rf "$tmp"; git clone --filter=blob:none --no-checkout https://github.com/ArduPilot/ardupilot.git "$tmp" && cd "$tmp" && git sparse-checkout init --cone && git sparse-checkout set Tools/ros2/ardupilot_msgs && git checkout master && mkdir -p "$SRC" && cp -a Tools/ros2/ardupilot_msgs "$PKG" && cd "$WS" && rm -rf "$tmp"; else echo "ardupilot_msgs already present, skipping fetch"; fi
+python3 - <<'PY'
+import torch
+print("torch:", torch.__version__)
+print("cuda available:", torch.cuda.is_available())
+print("cuda version:", torch.version.cuda)
+print("device count:", torch.cuda.device_count())
+if torch.cuda.is_available():
+    print("gpu:", torch.cuda.get_device_name(0))
+PY
