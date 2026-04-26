@@ -1,3 +1,16 @@
+export LD_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu/nvidia:$LD_LIBRARY_PATH
+
+
+
+
+
+echo 'export LD_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu/nvidia:$LD_LIBRARY_PATH' >> ~/.bashrc
+source ~/.bashrc
+
+
+
+
+
 python3 - <<'PY'
 import torch
 print("torch:", torch.__version__)
