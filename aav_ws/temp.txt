@@ -1,12 +1,10 @@
-# Clone the repository
-git clone https://github.com/yourusername/jetson-utilities.git
-cd jetson-utilities
-
-# Make scripts executable
-chmod +x *.sh
-
-# Install PyTorch (interactive)
-./install_pytorch.sh
-
-# Build OpenCV with CUDA (long process)
-./build_opencv.sh
+pip uninstall -y torch torchvision ultralytics && \
+rm -rf ~/.local/lib/python3.10/site-packages/torch* && \
+rm -rf ~/.local/lib/python3.10/site-packages/torchvision* && \
+pip cache purge && \
+pip install 'numpy<2' && \
+wget https://pypi.jetson-ai-lab.dev/jp6/cu126/+f/5cf/9ed17e35cb752/torch-2.5.0-cp310-cp310-linux_aarch64.whl && \
+wget https://pypi.jetson-ai-lab.dev/jp6/cu126/+f/5f9/67f920de3953f/torchvision-0.20.0-cp310-cp310-linux_aarch64.whl && \
+pip install torch-2.5.0-cp310-cp310-linux_aarch64.whl && \
+pip install torchvision-0.20.0-cp310-cp310-linux_aarch64.whl && \
+pip install ultralytics
