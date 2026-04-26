@@ -65,6 +65,7 @@ def generate_launch_description():
             "yolo_encoding": "rgb8",
             "use_tracking": "False",
             "use_debug": "True",
+            "device": "cpu",
         }.items(),
     )
 
