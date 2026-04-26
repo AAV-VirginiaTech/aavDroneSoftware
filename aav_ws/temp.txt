@@ -1,10 +1,10 @@
-pip uninstall -y torch torchvision ultralytics && \
-rm -rf ~/.local/lib/python3.10/site-packages/torch* && \
-rm -rf ~/.local/lib/python3.10/site-packages/torchvision* && \
-pip cache purge && \
-pip install 'numpy<2' && \
-wget https://pypi.jetson-ai-lab.dev/jp6/cu126/+f/6cc/6ecfe8a5994fd/torch-2.6.0-cp310-cp310-linux_aarch64.whl && \
-wget https://pypi.jetson-ai-lab.dev/jp6/cu126/+f/aa2/2da8dcf4c4c8d/torchvision-0.21.0-cp310-cp310-linux_aarch64.whl && \
-pip install --user torch-2.6.0-cp310-cp310-linux_aarch64.whl && \
-pip install --user torchvision-0.21.0-cp310-cp310-linux_aarch64.whl && \
-pip install --user ultralytics
+wget 
+raw.githubusercontent.com/pytorch/pytorch/5c6af2b583709f6176898c017424dc9981023c28/.ci/docker/
+common/install_cusparselt.sh 
+export CUDA_VERSION=12.1 # as an example   
+bash ./install_cusparselt.sh
+
+export TORCH_INSTALL=https://developer.download.nvidia.cn/compute/redist/jp/v511/pytorch/torch-2.0.0+nv23.05-cp38-cp38-linux_aarch64.whl
+
+python3 -m pip install --upgrade pip; python3 -m pip install numpy==’1.26.1’; python3 -m pip install --no-cache $TORCH_INSTALL
+
