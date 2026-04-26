@@ -1,16 +1,16 @@
-export LD_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu:/usr/lib/aarch64-linux-gnu/nvidia:$LD_LIBRARY_PATH
+pip3 uninstall torchvision -y
+
+
+pip3 install --no-cache-dir \
+https://developer.download.nvidia.com/compute/redist/jp/v60/pytorch/torchvision-0.19.0a0+nv24.05-cp310-cp310-linux_aarch64.whl
 
 
 
-echo 'export LD_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu:/usr/lib/aarch64-linux-gnu/nvidia:$LD_LIBRARY_PATH' >> ~/.bashrc
-source ~/.bashrc
 
 
-
-
-python3 - <<'PY'
-import torch
+python3 - << 'PY'
+import torch, torchvision
 print("torch:", torch.__version__)
-print("cuda available:", torch.cuda.is_available())
-print("gpu:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "NONE")
+print("torchvision:", torchvision.__version__)
+print("cuda:", torch.cuda.is_available())
 PY
