@@ -1,14 +1,7 @@
-sudo apt update
-sudo apt install -y docker.io
-sudo usermod -aG docker $USER
-newgrp docker
-
-docker pull nvcr.io/nvidia/l4t-pytorch:r36.2.0-pth2.1-py3
-
-docker run --rm -it \
-  --runtime nvidia \
-  --network host \
-  --privileged \
-  -v ~/aavDroneSoftware:/workspace/aavDroneSoftware \
-  nvcr.io/nvidia/l4t-pytorch:r36.2.0-pth2.1-py3 \
-  bash
+python3 - <<'PY'
+import torch, torchvision
+print(torch.__version__)
+print(torchvision.__version__)
+print(torch.cuda.is_available())
+print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else "NONE")
+PY
