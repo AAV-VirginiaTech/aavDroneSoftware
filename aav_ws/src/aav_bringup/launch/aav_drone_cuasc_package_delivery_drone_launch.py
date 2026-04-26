@@ -66,6 +66,8 @@ def generate_launch_description():
             "input_image_topic": "/siyi_a8/image_raw",
             "image_reliability": "2",
             "yolo_encoding": "rgb8",
+            "use_tracking": "False",
+            "use_debug": "True",
         }.items(),
     )
 
