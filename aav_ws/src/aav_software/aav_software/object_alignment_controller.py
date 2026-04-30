@@ -7,6 +7,7 @@ from aav_msgs.msg import DronePosition, Mode, NewDronePosition, TargetPosition
 from rclpy.clock import Duration
 from rclpy.node import Node
 
+from .mission import Mission
 from .payload_drop import run_payload_drop_sequence
 from .topic_converter_for_simulation import ArduPilotMode
 
@@ -47,20 +48,6 @@ yaw: 0.0
 
 
 """
-
-
-class Mission(Enum):
-    """
-    Current mission being run by the Object Alignment Controller.
-    Used to determine which parameters to use and which actions to take at various stages of the state machine.
-    """
-
-    PACKAGE_DELIVERY_CUASC = 0  # Mission for delivering cube onto the bullseye. Drone will land and take off autonomously.
-    PAYLOAD_DROP_CUASC = 1  # Mission for dropping beanbag onto the bullseye. Drone remains in air the entire time.
-    GCP_MARKER_ALIGNING_CUASC = (
-        2  # Mission for drone only aligning to GCP points and not doing anything else.
-    )
-    PAYLOAD_DELIVERY_SUAS = 3  # Mission for delivering water bottle/strobe beacon to detected object on the ground. Drone stays in the air the entire time.
 
 
 class OacState(Enum):

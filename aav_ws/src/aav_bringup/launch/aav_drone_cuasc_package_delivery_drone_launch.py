@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from aav_software.object_alignment_controller import Mission
+from aav_software.mission import Mission
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription, TimerAction
