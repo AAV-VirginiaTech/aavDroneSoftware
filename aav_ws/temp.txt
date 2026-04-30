@@ -1,20 +1,15 @@
-python3 -c "import torch; print(torch.__version__); print(torch.__file__)"
+pip install https://github.com/ultralytics/assets/releases/download/v0.0.0/torch-2.10.0-cp310-cp310-linux_aarch64.whl
+pip install https://github.com/ultralytics/assets/releases/download/v0.0.0/torchvision-0.25.0-cp310-cp310-linux_aarch64.whl
 
 
-python3 -m pip show torch torchvision ultralytics
-
-
-python3 -m pip uninstall -y torch torchvision torchaudio
-python3 -m pip uninstall -y torch torchvision torchaudio
-
-
-ls ~/.local/lib/python3.10/site-packages | grep torch
+wget https://developer.download.nvidia.com/compute/cudss/0.7.1/local_installers/cudss-local-tegra-repo-ubuntu2204-0.7.1_0.7.1-1_arm64.deb
+sudo dpkg -i cudss-local-tegra-repo-ubuntu2204-0.7.1_0.7.1-1_arm64.deb
+sudo cp /var/cudss-local-tegra-repo-ubuntu2204-0.7.1/cudss-*-keyring.gpg /usr/share/keyrings/
+sudo apt-get update
+sudo apt-get -y install cudss
 
 
 
-rm -rf ~/.local/lib/python3.10/site-packages/torch*
-rm -rf ~/.local/lib/python3.10/site-packages/torchvision*
-rm -rf ~/.local/lib/python3.10/site-packages/torchaudio*
-
+pip install https://github.com/ultralytics/assets/releases/download/v0.0.0/onnxruntime_gpu-1.23.0-cp310-cp310-linux_aarch64.whl
 
 
