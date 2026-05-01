@@ -160,6 +160,9 @@ class ObjectAlignmentController(Node):
                 self.guided_mode_request_in_flight = True
             return
 
+        if self.current_mission != ArduPilotMode.GUIDED:
+            return
+
         self.last_target_label = target_position.object_label
 
         # if this is the first target we have seen, reset the timer
@@ -187,7 +190,6 @@ class ObjectAlignmentController(Node):
             new_position.longitude = target_position.longitude
 
             new_position.altitude = self.descent_alignment_altitude
-            self.seen_target = True
 
             self.new_position_pub.publish(new_position)
 
