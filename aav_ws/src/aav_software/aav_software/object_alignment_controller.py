@@ -99,7 +99,6 @@ class ObjectAlignmentController(Node):
         self.guided_mode_request_in_flight = False
         self.current_gps_position: Optional[DronePosition] = None
 
-        self.last_target_position: Optional[NewDronePosition] = None
         self.last_target_label: Optional[str] = None
         self.seen_target: bool = False
 
@@ -164,7 +163,7 @@ class ObjectAlignmentController(Node):
         self.last_target_label = target_position.object_label
 
         # if this is the first target we have seen, reset the timer
-        if not self.last_target_position:
+        if not self.seen_target:
             self.time_marker = self.get_clock().now()
 
         if self.state == OacState.SEEKING:
@@ -179,7 +178,8 @@ class ObjectAlignmentController(Node):
             new_position.longitude = target_position.longitude
             new_position.altitude = float(self.current_gps_position.altitude)
 
-            self.last_target_position = new_position
+            self.seen_target = True
+
             self.new_position_pub.publish(new_position)
         elif self.state == OacState.ALIGNED_DESCENDING:
             new_position = NewDronePosition()
@@ -187,7 +187,6 @@ class ObjectAlignmentController(Node):
             new_position.longitude = target_position.longitude
 
             new_position.altitude = self.descent_alignment_altitude
-            self.last_target_position = new_position
             self.seen_target = True
 
             self.new_position_pub.publish(new_position)
