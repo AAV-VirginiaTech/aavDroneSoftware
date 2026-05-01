@@ -276,8 +276,6 @@ class ObjectAlignmentController(Node):
                                 self.get_logger().error(
                                     f"Payload drop sequence failed: {exc}"
                                 )
-
-                            pass
                         else:
                             self.get_logger().info("Dropping beacon")
                             try:
@@ -286,7 +284,6 @@ class ObjectAlignmentController(Node):
                                 self.get_logger().error(
                                     f"Payload drop sequence failed: {exc}"
                                 )
-                            pass
 
                         self.state = OacState.DROPPING_PAYLOAD
                         self.get_logger().info(f"Switching state to {self.state.name}")
