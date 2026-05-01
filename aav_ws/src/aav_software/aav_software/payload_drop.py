@@ -13,12 +13,12 @@ This node intentionally supports only 3 user-facing parameters:
   3. aux_port: int
      - physical AUX port number on the board, 1 through 6
      - converted internally to ArduPilot SERVOx:
-         AUX1 -> SERVO8
-         AUX2 -> SERVO9
-         AUX3 -> SERVO10
-         AUX4 -> SERVO11
-         AUX5 -> SERVO12
-         AUX6 -> SERVO13
+         AUX1 -> SERVO9
+         AUX2 -> SERVO10
+         AUX3 -> SERVO11
+         AUX4 -> SERVO12
+         AUX5 -> SERVO13
+         AUX6 -> SERVO14
 
 Example:
   ros2 run aav_software cuasc_drop true 1900 5
@@ -27,7 +27,7 @@ This means:
   openandclose = true
   open PWM     = 1900 us
   physical AUX = AUX5
-  ArduPilot    = SERVO12
+  ArduPilot    = SERVO13
 """
 
 from __future__ import annotations
@@ -69,17 +69,17 @@ def aux_port_to_servo_instance(aux_port: int) -> int:
     """
     Convert physical AUX port label into ArduPilot SERVOx number.
 
-    AUX1 -> SERVO8
-    AUX2 -> SERVO9
-    AUX3 -> SERVO10
-    AUX4 -> SERVO11
-    AUX5 -> SERVO12
-    AUX6 -> SERVO13
+    AUX1 -> SERVO9
+    AUX2 -> SERVO10
+    AUX3 -> SERVO11
+    AUX4 -> SERVO12
+    AUX5 -> SERVO13
+    AUX6 -> SERVO14
     """
     if not 1 <= aux_port <= 6:
         raise ValueError("aux_port must be in range 1 through 6")
 
-    return 7 + aux_port
+    return 8 + aux_port
 
 
 def parse_bool(value: str) -> bool:
