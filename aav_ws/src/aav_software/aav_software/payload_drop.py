@@ -69,17 +69,17 @@ def aux_port_to_servo_instance(aux_port: int) -> int:
     """
     Convert physical AUX port label into ArduPilot SERVOx number.
 
-    AUX1 -> SERVO9
-    AUX2 -> SERVO10
-    AUX3 -> SERVO11
-    AUX4 -> SERVO12
-    AUX5 -> SERVO13
-    AUX6 -> SERVO14
+    AUX1 -> SERVO8
+    AUX2 -> SERVO9
+    AUX3 -> SERVO10
+    AUX4 -> SERVO11
+    AUX5 -> SERVO12
+    AUX6 -> SERVO13
     """
     if not 1 <= aux_port <= 6:
         raise ValueError("aux_port must be in range 1 through 6")
 
-    return 8 + aux_port
+    return 7 + aux_port
 
 
 def parse_bool(value: str) -> bool:
@@ -153,7 +153,7 @@ class ServoCommandClient:
         if resp is None:
             raise ServoCommandError("No response from /mavros/cmd/command")
 
-        aux_port = servo_instance - 8
+        aux_port = servo_instance - 7
         self.node.get_logger().info(
             f"Set AUX{aux_port} / SERVO{servo_instance} to {pwm_us:.0f} us -> "
             f"success={resp.success}, result={resp.result}"
