@@ -160,7 +160,7 @@ class ObjectAlignmentController(Node):
                 self.guided_mode_request_in_flight = True
             return
 
-        if self.current_mission != ArduPilotMode.GUIDED:
+        if self.current_mode != ArduPilotMode.GUIDED:
             return
 
         self.last_target_label = target_position.object_label
