@@ -1,6 +1,1 @@
 python3 -m pip install --no-deps ultralytics==8.4.41 ultralytics-thop
-
-
-
-python3 -c "import torch; print(torch.__version__, torch.cuda.is_available())"
-python3 -c "from ultralytics import YOLO; print('ultralytics ok')"
