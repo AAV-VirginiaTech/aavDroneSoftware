@@ -101,6 +101,7 @@ class ObjectAlignmentController(Node):
 
         self.last_target_position: Optional[NewDronePosition] = None
         self.last_target_label: Optional[str] = None
+        self.seen_target: bool = False
 
         ### ROS2 PARAMETERS
 
@@ -187,6 +188,7 @@ class ObjectAlignmentController(Node):
 
             new_position.altitude = self.descent_alignment_altitude
             self.last_target_position = new_position
+            self.seen_target = True
 
             self.new_position_pub.publish(new_position)
 
@@ -197,7 +199,7 @@ class ObjectAlignmentController(Node):
         match self.state:
             case OacState.SEEKING:
                 if (
-                    not self.last_target_position
+                    not self.seen_target
                     or not self.current_gps_position
                     or self.current_mission == Mission.GCP_MARKER_ALIGNING_CUASC.value
                 ):
@@ -302,6 +304,7 @@ class ObjectAlignmentController(Node):
                     > self.substructure_action_duration
                 ):
                     if self.current_mission == Mission.PAYLOAD_DELIVERY_SUAS.value:
+                        self.seen_target = False
                         self.state = OacState.SEEKING
                         self.get_logger().info(f"Switching state to {self.state.name}")
                     else:
