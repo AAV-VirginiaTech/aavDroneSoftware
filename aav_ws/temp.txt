@@ -13,3 +13,16 @@ sudo apt-get -y install cudss
 pip install https://github.com/ultralytics/assets/releases/download/v0.0.0/onnxruntime_gpu-1.23.0-cp310-cp310-linux_aarch64.whl
 
 
+
+
+
+
+sadfadsf
+
+
+
+
+python3 -c "import torch; print(torch.__version__); print(torch.__file__); print(torch.cuda.is_available())"
+
+
+python3 -c "from ultralytics import YOLO; print('ultralytics ok')"
