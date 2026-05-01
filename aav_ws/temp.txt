@@ -1,18 +1,20 @@
+python3 -m pip uninstall -y torch torchvision torchaudio
+rm -rf ~/.local/lib/python3.10/site-packages/torch*
+rm -rf ~/.local/lib/python3.10/site-packages/torchvision*
+rm -rf ~/.local/lib/python3.10/site-packages/torchaudio*
+
+
+python3 -c "import torch"
+
+
 python3 -m pip install --no-cache-dir \
-  https://github.com/ultralytics/assets/releases/download/v0.0.0/torch-2.10.0-cp310-cp310-linux_aarch64.whl
-
-python3 -m pip install --no-cache-dir \
-  https://github.com/ultralytics/assets/releases/download/v0.0.0/torchvision-0.25.0-cp310-cp310-linux_aarch64.whl
+  https://developer.download.nvidia.com/compute/redist/jp/v60/pytorch/torch-2.3.0-cp310-cp310-linux_aarch64.whl
 
 
-
-  wget https://developer.download.nvidia.com/compute/cudss/0.7.1/local_installers/cudss-local-tegra-repo-ubuntu2204-0.7.1_0.7.1-1_arm64.deb
-sudo dpkg -i cudss-local-tegra-repo-ubuntu2204-0.7.1_0.7.1-1_arm64.deb
-sudo cp /var/cudss-local-tegra-repo-ubuntu2204-0.7.1/cudss-*-keyring.gpg /usr/share/keyrings/
-sudo apt-get update
-sudo apt-get -y install cudss
+  python3 -c "import torch; print(torch.__version__); print(torch.__file__); print(torch.cuda.is_available())"
 
 
-python3 -c "import torch; print(torch.__version__); print(torch.__file__); print(torch.cuda.is_available())"
-python3 -c "import torchvision; print(torchvision.__version__)"
-python3 -c "from ultralytics import YOLO; print('ultralytics ok')"
+  python3 -m pip install --no-deps ultralytics==8.4.41
+
+
+  python3 -c "from ultralytics import YOLO; print('ultralytics ok')"
