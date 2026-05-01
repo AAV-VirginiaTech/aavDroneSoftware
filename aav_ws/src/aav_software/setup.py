@@ -28,7 +28,7 @@ setup(
             "topic_converter_for_drone = aav_software.topic_converter_for_drone:main",
             "topic_converter_for_simulation = aav_software.topic_converter_for_simulation:main",
             "object_alignment_controller = aav_software.object_alignment_controller:main",
-            "cuasc_drop = aav_software.payload_drop_scripts.CUASC_Drop:main",
+            "payload_drop = aav_software.payload_drop:main",
         ],
     },
 )

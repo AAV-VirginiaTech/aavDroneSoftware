@@ -13,12 +13,12 @@ This node intentionally supports only 3 user-facing parameters:
   3. aux_port: int
      - physical AUX port number on the board, 1 through 6
      - converted internally to ArduPilot SERVOx:
-         AUX1 -> SERVO9
-         AUX2 -> SERVO10
-         AUX3 -> SERVO11
-         AUX4 -> SERVO12
-         AUX5 -> SERVO13
-         AUX6 -> SERVO14
+         AUX1 -> SERVO8
+         AUX2 -> SERVO9
+         AUX3 -> SERVO10
+         AUX4 -> SERVO11
+         AUX5 -> SERVO12
+         AUX6 -> SERVO13
 
 Example:
   ros2 run aav_software cuasc_drop true 1900 5
@@ -27,7 +27,7 @@ This means:
   openandclose = true
   open PWM     = 1900 us
   physical AUX = AUX5
-  ArduPilot    = SERVO13
+  ArduPilot    = SERVO12
 """
 
 from __future__ import annotations
@@ -254,12 +254,13 @@ def run_payload_drop_sequence(
 
 def main(args=None) -> int:
     argv = sys.argv if args is None else args
-    config = parse_args(argv)
 
     should_shutdown = False
     if not rclpy.ok():
-        rclpy.init(args=argv)
+        rclpy.init(args=[])
         should_shutdown = True
+
+    config = parse_args(argv)
 
     node = None
     try:
