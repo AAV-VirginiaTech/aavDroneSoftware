@@ -1,5 +1,24 @@
+# Clean out the broken JetPack 6.1 / generic torch install
+python3 -m pip uninstall -y torch torchvision torchaudio ultralytics ultralytics-thop
+rm -rf ~/.local/lib/python3.10/site-packages/torch*
+rm -rf ~/.local/lib/python3.10/site-packages/torchvision*
+rm -rf ~/.local/lib/python3.10/site-packages/torchaudio*
+rm -rf ~/.local/lib/python3.10/site-packages/ultralytics*
+
+# Basic dependencies
+sudo apt update
+sudo apt install -y python3-pip libopenblas-dev
+python3 -m pip install -U pip
+
+# Install JetPack 6.0 / R36.3 compatible PyTorch
 python3 -m pip install --no-cache-dir \
   "https://developer.download.nvidia.com/compute/redist/jp/v60dp/pytorch/torch-2.3.0a0+6ddf5cf85e.nv24.04.14026654-cp310-cp310-linux_aarch64.whl"
 
+# Test torch before continuing
+python3 -c "import torch; print('torch:', torch.__version__); print(torch.__file__); print('cuda:', torch.cuda.is_available())"
 
-  python3 -c "import torch; print(torch.__version__); print(torch.__file__); print(torch.cuda.is_available())"
+# Install Ultralytics without dependencies so it does NOT overwrite torch
+python3 -m pip install --no-deps ultralytics==8.4.41 ultralytics-thop
+
+# Test Ultralytics import
+python3 -c "from ultralytics import YOLO; print('ultralytics ok')"
