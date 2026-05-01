@@ -1,23 +1,6 @@
-# Remove system LibTorch packages that can conflict with pip torch wheels
-sudo apt remove -y libtorch-dev libtorch-test libtorch1.8
+python3 -m pip install --no-deps ultralytics==8.4.41 ultralytics-thop
 
-# Clean broken pip torch installs again
-python3 -m pip uninstall -y torch torchvision torchaudio ultralytics ultralytics-thop
-rm -rf ~/.local/lib/python3.10/site-packages/torch*
-rm -rf ~/.local/lib/python3.10/site-packages/torchvision*
-rm -rf ~/.local/lib/python3.10/site-packages/torchaudio*
-rm -rf ~/.local/lib/python3.10/site-packages/ultralytics*
 
-# Clear Python bytecode/cache just in case
-find ~/.local/lib/python3.10/site-packages -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
-rm -rf ~/.cache/pip
 
-# Make sure torch is gone
-python3 -c "import importlib.util; print(importlib.util.find_spec('torch'))"
-
-# Install JetPack 6.0 / R36.3 compatible PyTorch wheel
-python3 -m pip install --no-cache-dir \
-  "https://developer.download.nvidia.com/compute/redist/jp/v60dp/pytorch/torch-2.3.0a0+6ddf5cf85e.nv24.04.14026654-cp310-cp310-linux_aarch64.whl"
-
-# Test torch
-python3 -c "import torch; print('torch:', torch.__version__); print(torch.__file__); print('cuda:', torch.cuda.is_available())"
+python3 -c "import torch; print(torch.__version__, torch.cuda.is_available())"
+python3 -c "from ultralytics import YOLO; print('ultralytics ok')"
