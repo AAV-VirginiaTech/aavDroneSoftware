@@ -1,20 +1,5 @@
-python3 -m pip uninstall -y torch torchvision torchaudio
-rm -rf ~/.local/lib/python3.10/site-packages/torch*
-rm -rf ~/.local/lib/python3.10/site-packages/torchvision*
-rm -rf ~/.local/lib/python3.10/site-packages/torchaudio*
-
-
-python3 -c "import torch"
-
-
 python3 -m pip install --no-cache-dir \
-  https://developer.download.nvidia.com/compute/redist/jp/v60/pytorch/torch-2.3.0-cp310-cp310-linux_aarch64.whl
+  "https://developer.download.nvidia.com/compute/redist/jp/v60dp/pytorch/torch-2.3.0a0+6ddf5cf85e.nv24.04.14026654-cp310-cp310-linux_aarch64.whl"
 
 
   python3 -c "import torch; print(torch.__version__); print(torch.__file__); print(torch.cuda.is_available())"
-
-
-  python3 -m pip install --no-deps ultralytics==8.4.41
-
-
-  python3 -c "from ultralytics import YOLO; print('ultralytics ok')"
