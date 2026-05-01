@@ -7,16 +7,12 @@ from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
     fcu_url = LaunchConfiguration("fcu_url")
-    net_iface = LaunchConfiguration("net_iface")
-    jetson_ip = LaunchConfiguration("jetson_ip")
     camera_ip = LaunchConfiguration("camera_ip")
     rtsp_url = LaunchConfiguration("rtsp_url")
 
     return LaunchDescription(
         [
             DeclareLaunchArgument("fcu_url", default_value="/dev/ttyACM0:115200"),
-            DeclareLaunchArgument("net_iface", default_value="eth0"),
-            DeclareLaunchArgument("jetson_ip", default_value="192.168.144.30/24"),
             DeclareLaunchArgument("camera_ip", default_value="192.168.144.25"),
             DeclareLaunchArgument(
                 "rtsp_url",
@@ -58,25 +54,6 @@ def generate_launch_description():
                         output="screen",
                     )
                 ],
-            ),
-            # Configure Ethernet for SIYI camera
-            ExecuteProcess(
-                cmd=[
-                    "bash",
-                    "-c",
-                    [
-                        "sudo ip addr flush dev ",
-                        net_iface,
-                        " || true; sudo ip addr add ",
-                        jetson_ip,
-                        " dev ",
-                        net_iface,
-                        "; sudo ip link set ",
-                        net_iface,
-                        " up",
-                    ],
-                ],
-                output="screen",
             ),
             # Ping camera after network setup
             TimerAction(

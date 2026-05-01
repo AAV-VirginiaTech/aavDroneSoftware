@@ -3,7 +3,7 @@ from pathlib import Path
 from aav_software.mission import Mission
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, TimerAction
+from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import PathJoinSubstitution
 from launch_ros.actions import Node
@@ -65,15 +65,10 @@ def generate_launch_description():
         }.items(),
     )
 
-    delayed_yolo = TimerAction(
-        period=10.0,
-        actions=[yolo],
-    )
-
     ld.add_action(drone_mavros_and_camera_boot_launch)
     ld.add_action(manavs_magic_code)
     ld.add_action(object_alignment_controller)
     ld.add_action(topic_converter)
-    ld.add_action(delayed_yolo)
+    ld.add_action(yolo)
 
     return ld
