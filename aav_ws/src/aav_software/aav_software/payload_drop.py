@@ -153,7 +153,7 @@ class ServoCommandClient:
         if resp is None:
             raise ServoCommandError("No response from /mavros/cmd/command")
 
-        aux_port = servo_instance - 7
+        aux_port = servo_instance - 8
         self.node.get_logger().info(
             f"Set AUX{aux_port} / SERVO{servo_instance} to {pwm_us:.0f} us -> "
             f"success={resp.success}, result={resp.result}"
