@@ -6,6 +6,7 @@ import rclpy
 from aav_msgs.msg import DronePosition, Mode, NewDronePosition, TargetPosition
 from rclpy.clock import Duration
 from rclpy.node import Node
+from rclpy.time import Time
 
 from .mission import Mission
 from .payload_drop import run_payload_drop_sequence
@@ -130,7 +131,8 @@ class ObjectAlignmentController(Node):
 
         self.state = OacState.SEEKING
         self.time_marker = self.get_clock().now()
-        self.startup_time: Optional[rclpy.time.Time] = None
+        self.startup_time: Optional[Time] = None
+        self.startup_delay_ended = False
 
         self.get_logger().info("Object Alignment Controller has been launched")
 
@@ -216,6 +218,11 @@ class ObjectAlignmentController(Node):
         ):
             self.get_logger().info("Under startup delay")
             return
+
+        # Log when startup delay ends
+        if self.startup_time is not None and not self.startup_delay_ended:
+            self.startup_delay_ended = True
+            self.get_logger().info("Startup delay has ended")
 
         match self.state:
             case OacState.SEEKING:
