@@ -108,7 +108,8 @@ def generate_launch_description():
         launch_arguments={
             "model": str(Path(aav_bringup) / "aav_yolo_models" / "bullseye.pt"),
             "input_image_topic": "/camera/image",
-            "confidence_threshold": "0.9",
+            "threshold": "0.9",
+            "use_tracking": "false"
         }.items(),
     )
 
