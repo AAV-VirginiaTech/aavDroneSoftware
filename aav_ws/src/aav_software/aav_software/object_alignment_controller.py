@@ -66,7 +66,7 @@ class OacState(Enum):
 
 
 class ObjectAlignmentController(Node):
-    STARTUP_DELAY = Duration(seconds=45)
+    STARTUP_DELAY = Duration(seconds=30)
     SEEK_ALIGNMENT_DURATION = Duration(seconds=30)
     DESCENT_ALIGNMENT_DURATION = Duration(seconds=12)
 
@@ -130,7 +130,7 @@ class ObjectAlignmentController(Node):
 
         self.state = OacState.SEEKING
         self.time_marker = self.get_clock().now()
-        self.startup_time = self.get_clock().now()
+        self.startup_time: Optional[rclpy.time.Time] = None
 
         self.get_logger().info("Object Alignment Controller has been launched")
 
@@ -199,8 +199,18 @@ class ObjectAlignmentController(Node):
         self.current_gps_position = gps_position
 
     def update_state_machine(self):
-        # Wait for startup delay before processing state transitions
+        # Start the startup delay timer once drone takes off
         if (
+            self.startup_time is None
+            and self.current_gps_position
+            and float(self.current_gps_position.altitude)
+            > float(ObjectAlignmentController.TAKEOFF_THRESHOLD_ALTITUDE)
+        ):
+            self.startup_time = self.get_clock().now()
+            self.get_logger().info("Drone has taken off; starting startup delay")
+
+        # Wait for startup delay before processing state transitions
+        if self.startup_time is not None and (
             self.get_clock().now() - self.startup_time
             < ObjectAlignmentController.STARTUP_DELAY
         ):
