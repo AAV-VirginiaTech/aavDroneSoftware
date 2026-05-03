@@ -66,6 +66,7 @@ class OacState(Enum):
 
 
 class ObjectAlignmentController(Node):
+    STARTUP_DELAY = Duration(seconds=30)
     SEEK_ALIGNMENT_DURATION = Duration(seconds=30)
     DESCENT_ALIGNMENT_DURATION = Duration(seconds=12)
 
@@ -129,6 +130,7 @@ class ObjectAlignmentController(Node):
 
         self.state = OacState.SEEKING
         self.time_marker = self.get_clock().now()
+        self.startup_time = self.get_clock().now()
 
         self.get_logger().info("Object Alignment Controller has been launched")
 
@@ -197,6 +199,13 @@ class ObjectAlignmentController(Node):
         self.current_gps_position = gps_position
 
     def update_state_machine(self):
+        # Wait for startup delay before processing state transitions
+        if (
+            self.get_clock().now() - self.startup_time
+            < ObjectAlignmentController.STARTUP_DELAY
+        ):
+            return
+
         match self.state:
             case OacState.SEEKING:
                 if (
