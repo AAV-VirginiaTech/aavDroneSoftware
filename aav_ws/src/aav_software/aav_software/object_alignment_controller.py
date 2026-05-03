@@ -66,7 +66,7 @@ class OacState(Enum):
 
 
 class ObjectAlignmentController(Node):
-    STARTUP_DELAY = Duration(seconds=30)
+    STARTUP_DELAY = Duration(seconds=45)
     SEEK_ALIGNMENT_DURATION = Duration(seconds=30)
     DESCENT_ALIGNMENT_DURATION = Duration(seconds=12)
 
@@ -204,6 +204,7 @@ class ObjectAlignmentController(Node):
             self.get_clock().now() - self.startup_time
             < ObjectAlignmentController.STARTUP_DELAY
         ):
+            self.get_logger().info("Under startup delay")
             return
 
         match self.state:
