@@ -148,6 +148,13 @@ class ObjectAlignmentController(Node):
         self.guided_mode_request_in_flight = False
 
     def target_position_callback(self, target_position: TargetPosition):
+        # Don't process targets during startup delay
+        if self.startup_time is not None and (
+            self.get_clock().now() - self.startup_time
+            < ObjectAlignmentController.STARTUP_DELAY
+        ):
+            return
+
         if self.state == OacState.RETURNING:
             return
 
