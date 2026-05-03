@@ -67,7 +67,7 @@ def generate_launch_description():
             "input_image_topic": "/siyi_a8/image_raw",
             "image_reliability": "2",
             "threshold": "0.9",
-            "use_tracking": "false"
+            "use_tracking": "False"
         }.items(),
     )
 
