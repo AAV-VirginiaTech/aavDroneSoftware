@@ -67,7 +67,7 @@ class OacState(Enum):
 
 
 class ObjectAlignmentController(Node):
-    STARTUP_DELAY = Duration(seconds=30)
+    STARTUP_DELAY = Duration(seconds=45)
     SEEK_ALIGNMENT_DURATION = Duration(seconds=30)
     DESCENT_ALIGNMENT_DURATION = Duration(seconds=12)
 
