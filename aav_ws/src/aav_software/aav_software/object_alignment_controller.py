@@ -72,7 +72,7 @@ class ObjectAlignmentController(Node):
     DESCENT_ALIGNMENT_DURATION = Duration(seconds=12)
 
     LANDING_THRESHOLD_ALTITUDE: float = 0.5
-    TAKEOFF_THRESHOLD_ALTITUDE: float = 15.0
+    TAKEOFF_THRESHOLD_ALTITUDE: float = 3.0
 
     def __init__(self):
         super().__init__("object_alignment_controller")
