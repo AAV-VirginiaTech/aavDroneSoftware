@@ -12,7 +12,7 @@ def generate_launch_description():
 
     return LaunchDescription(
         [
-            DeclareLaunchArgument("fcu_url", default_value="/dev/ttyACM0:115200"),
+            DeclareLaunchArgument("fcu_url", default_value="/dev/ttyTHS1:115200"),
             DeclareLaunchArgument("camera_ip", default_value="192.168.144.25"),
             DeclareLaunchArgument(
                 "rtsp_url",
