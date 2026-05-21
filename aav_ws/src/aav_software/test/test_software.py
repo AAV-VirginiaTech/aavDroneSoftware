@@ -158,6 +158,11 @@ def test_target_position_callback_requests_guided_mode_once_when_not_guided():
     controller_any.send_new_mode = Mock()
     publisher = CapturingPublisher()
     controller_any.new_position_pub = publisher
+    # Ensure startup delay has already elapsed for tests
+    controller_any.startup_time = FakeTime(0)
+    controller_any.get_clock = lambda: FakeClock(
+        ObjectAlignmentController.STARTUP_DELAY.nanoseconds + 1
+    )
 
     target = TargetPosition()
     target.object_label = "Bullseye"
@@ -180,10 +185,16 @@ def test_target_position_callback_publishes_when_guided_and_bullseye():
     controller_any.current_gps_position = make_drone_position(37.2295, -80.4138, 22.5)
     controller_any.last_target_position = None
     controller_any.time_marker = FakeTime(0)
+    # Ensure startup delay has already elapsed for tests
+    controller_any.startup_time = FakeTime(0)
+    controller_any.get_clock = lambda: FakeClock(
+        ObjectAlignmentController.STARTUP_DELAY.nanoseconds + 1
+    )
     publisher = CapturingPublisher()
     controller_any.new_position_pub = publisher
-    controller_any.get_clock = lambda: FakeClock(100)
     controller_any.get_logger = lambda: FakeLogger()
+    controller_any.startup_delay_ended = False
+    controller_any.seen_target = False
 
     target = TargetPosition()
     target.object_label = "Bullseye"
@@ -198,7 +209,8 @@ def test_target_position_callback_publishes_when_guided_and_bullseye():
     assert math.isclose(new_position.latitude, 37.2296)
     assert math.isclose(new_position.longitude, -80.4139)
     assert math.isclose(new_position.altitude, 22.5)
-    assert controller_any.last_target_position is new_position
+    assert controller_any.last_target_label == "Bullseye"
+    assert controller_any.seen_target is True
 
 
 def test_update_state_machine_seeking_to_aligned_descending():
@@ -209,10 +221,16 @@ def test_update_state_machine_seeking_to_aligned_descending():
     controller_any.last_target_position = NewDronePosition()
     controller_any.current_gps_position = make_drone_position(37.0, -80.0, 20.0)
     controller_any.time_marker = FakeTime(0)
+    # Set startup time and advance clock past both startup and seek durations
+    controller_any.startup_time = FakeTime(0)
     controller_any.get_clock = lambda: FakeClock(
-        ObjectAlignmentController.SEEK_ALIGNMENT_DURATION.nanoseconds + 1
+        ObjectAlignmentController.STARTUP_DELAY.nanoseconds
+        + ObjectAlignmentController.SEEK_ALIGNMENT_DURATION.nanoseconds
+        + 1
     )
     controller_any.get_logger = lambda: FakeLogger()
+    controller_any.startup_delay_ended = False
+    controller_any.seen_target = True
 
     controller.update_state_machine()
 
@@ -228,9 +246,15 @@ def test_update_state_machine_aligned_descending_to_final_descending():
     controller_any.hardcoded_drop_altitude = 3.0
     controller_any.current_gps_position = make_drone_position(37.2295, -80.4138, 5.0)
     controller_any.time_marker = FakeTime(0)
+    # Ensure startup delay has already elapsed for tests
+    controller_any.startup_time = FakeTime(0)
+    controller_any.get_clock = lambda: FakeClock(
+        ObjectAlignmentController.STARTUP_DELAY.nanoseconds + 1
+    )
     publisher = CapturingPublisher()
     controller_any.new_position_pub = publisher
     controller_any.get_logger = lambda: FakeLogger()
+    controller_any.startup_delay_ended = False
 
     controller.update_state_machine()
 
