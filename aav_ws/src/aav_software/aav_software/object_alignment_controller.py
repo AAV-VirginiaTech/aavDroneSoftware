@@ -296,7 +296,7 @@ class ObjectAlignmentController(Node):
                     elif self.current_mission == Mission.PAYLOAD_DROP_CUASC.value:
                         self.get_logger().info("Dropping payload")
                         try:
-                            run_payload_drop_sequence(self, True, 2000, 1)
+                            run_payload_drop_sequence(self, True, 2000, 8)
                         except Exception as exc:
                             self.get_logger().error(
                                 f"Payload drop sequence failed: {exc}"
@@ -311,7 +311,7 @@ class ObjectAlignmentController(Node):
                             self.get_logger().info("Dropping water bottle")
 
                             try:
-                                run_payload_drop_sequence(self, True, 2000, 2)
+                                run_payload_drop_sequence(self, True, 2000, 7)
                             except Exception as exc:
                                 self.get_logger().error(
                                     f"Payload drop sequence failed: {exc}"
@@ -319,7 +319,7 @@ class ObjectAlignmentController(Node):
                         else:
                             self.get_logger().info("Dropping beacon")
                             try:
-                                run_payload_drop_sequence(self, True, 2000, 3)
+                                run_payload_drop_sequence(self, True, 2000, 6)
                             except Exception as exc:
                                 self.get_logger().error(
                                     f"Payload drop sequence failed: {exc}"
@@ -356,7 +356,7 @@ class ObjectAlignmentController(Node):
                 ) < float(ObjectAlignmentController.LANDING_THRESHOLD_ALTITUDE):
                     self.get_logger().info("Dropping CUASC package")
                     try:
-                        run_payload_drop_sequence(self, False, 1500, 1)
+                        run_payload_drop_sequence(self, False, 1500, 8)
                     except Exception as exc:
                         self.get_logger().error(f"Payload drop sequence failed: {exc}")
 
