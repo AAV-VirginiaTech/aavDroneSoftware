@@ -11,16 +11,16 @@ This node intentionally supports only 3 user-facing parameters:
      - the open/release PWM value
 
   3. aux_port: int
-     - physical FMU PWM OUT / AUX OUT channel on the Pixhawk Jetson Baseboard, 1 through 8
+     - physical IO PWM OUT / MAIN OUT channel, 1 through 8
      - converted internally to ArduPilot SERVOx:
-         FMU_CH1 / AUX1 -> SERVO9
-         FMU_CH2 / AUX2 -> SERVO10
-         FMU_CH3 / AUX3 -> SERVO11
-         FMU_CH4 / AUX4 -> SERVO12
-         FMU_CH5 / AUX5 -> SERVO13
-         FMU_CH6 / AUX6 -> SERVO14
-         FMU_CH7 / AUX7 -> SERVO15
-         FMU_CH8 / AUX8 -> SERVO16
+         IO_CH1 / MAIN1 -> SERVO1
+         IO_CH2 / MAIN2 -> SERVO2
+         IO_CH3 / MAIN3 -> SERVO3
+         IO_CH4 / MAIN4 -> SERVO4
+         IO_CH5 / MAIN5 -> SERVO5
+         IO_CH6 / MAIN6 -> SERVO6
+         IO_CH7 / MAIN7 -> SERVO7
+         IO_CH8 / MAIN8 -> SERVO8
 
 Example:
   ros2 run aav_software cuasc_drop true 1900 5
@@ -28,8 +28,8 @@ Example:
 This means:
   openandclose = true
   open PWM     = 1900 us
-  physical FMU = FMU_CH5 / AUX5
-  ArduPilot    = SERVO13
+  physical IO  = IO_CH5 / MAIN5
+  ArduPilot    = SERVO5
 """
 
 from __future__ import annotations
@@ -69,21 +69,21 @@ class ServoCommandError(RuntimeError):
 
 def aux_port_to_servo_instance(aux_port: int) -> int:
     """
-    Convert physical FMU PWM OUT / AUX OUT channel into ArduPilot SERVOx number.
+    Convert physical IO PWM OUT / MAIN OUT channel into ArduPilot SERVOx number.
 
-    FMU_CH1 / AUX1 -> SERVO9
-    FMU_CH2 / AUX2 -> SERVO10
-    FMU_CH3 / AUX3 -> SERVO11
-    FMU_CH4 / AUX4 -> SERVO12
-    FMU_CH5 / AUX5 -> SERVO13
-    FMU_CH6 / AUX6 -> SERVO14
-    FMU_CH7 / AUX7 -> SERVO15
-    FMU_CH8 / AUX8 -> SERVO16
+    IO_CH1 / MAIN1 -> SERVO1
+    IO_CH2 / MAIN2 -> SERVO2
+    IO_CH3 / MAIN3 -> SERVO3
+    IO_CH4 / MAIN4 -> SERVO4
+    IO_CH5 / MAIN5 -> SERVO5
+    IO_CH6 / MAIN6 -> SERVO6
+    IO_CH7 / MAIN7 -> SERVO7
+    IO_CH8 / MAIN8 -> SERVO8
     """
     if not 1 <= aux_port <= 8:
         raise ValueError("aux_port must be in range 1 through 8")
 
-    return 8 + aux_port
+    return aux_port
 
 
 def parse_bool(value: str) -> bool:
@@ -157,16 +157,17 @@ class ServoCommandClient:
         if resp is None:
             raise ServoCommandError("No response from /mavros/cmd/command")
 
-        aux_port = servo_instance - 8
+        io_channel = servo_instance
         self.node.get_logger().info(
-            f"Set FMU_CH{aux_port} / AUX{aux_port} / SERVO{servo_instance} to {pwm_us:.0f} us -> "
-            f"success={resp.success}, result={resp.result}"
+            f"Set IO_CH{io_channel} / MAIN{io_channel} / SERVO{servo_instance} "
+            f"to {pwm_us:.0f} us -> success={resp.success}, result={resp.result}"
         )
 
         if not resp.success or resp.result != MAV_RESULT_ACCEPTED:
             raise ServoCommandError(
-                f"Servo command rejected/failed: FMU_CH{aux_port} / AUX{aux_port}, SERVO{servo_instance}, "
-                f"pwm={pwm_us}, success={resp.success}, result={resp.result}"
+                f"Servo command rejected/failed: IO_CH{io_channel} / MAIN{io_channel}, "
+                f"SERVO{servo_instance}, pwm={pwm_us}, "
+                f"success={resp.success}, result={resp.result}"
             )
 
         return resp
@@ -175,7 +176,8 @@ class ServoCommandClient:
         validate_config(config)
 
         self.node.get_logger().info(
-            f"Using FMU_CH{config.aux_port} / AUX{config.aux_port} as SERVO{config.servo_instance}"
+            f"Using IO_CH{config.aux_port} / MAIN{config.aux_port} "
+            f"as SERVO{config.servo_instance}"
         )
 
         self.set_servo(config.servo_instance, CLOSE_PWM)
@@ -203,7 +205,7 @@ class PayloadReleaseNode(Node):
 
 def parse_args(argv: list[str]) -> PayloadReleaseConfig:
     parser = argparse.ArgumentParser(
-        description="Command a physical FMU PWM OUT / AUX OUT channel for payload release."
+        description="Command a physical IO PWM OUT / MAIN OUT channel for payload release."
     )
 
     parser.add_argument(
@@ -219,7 +221,7 @@ def parse_args(argv: list[str]) -> PayloadReleaseConfig:
     parser.add_argument(
         "aux_port",
         type=int,
-        help="Physical FMU PWM OUT / AUX OUT channel number on the board, 1 through 8.",
+        help="Physical IO PWM OUT / MAIN OUT channel number on the board, 1 through 8.",
     )
 
     parsed, unknown = parser.parse_known_args(argv[1:])
