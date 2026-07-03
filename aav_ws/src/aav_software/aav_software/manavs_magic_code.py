@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import math
+from typing import cast
 
 import rclpy
 
@@ -8,6 +9,7 @@ import rclpy
 from aav_msgs.msg import DronePosition, TargetPosition
 from pyproj import CRS, Transformer
 from rclpy.node import Node
+from sensor_msgs.msg import Image
 
 # For YOLO Subscriber
 from yolo_msgs.msg import DetectionArray, Point2D
@@ -50,10 +52,17 @@ class Cam:
     def __init__(self):
         self.fov_hor = math.radians(81.0)
         self.fov_vert = math.radians(51.3)
-        self.x_res = 1920
-        self.y_res = 1080
+        self.x_res = None
+        self.y_res = None
         self.fov_hor_dist = 0.0
         self.fov_vert_dist = 0.0
+
+    def update_resolution(self, width: int, height: int):
+        self.x_res = int(width)
+        self.y_res = int(height)
+
+    def has_resolution(self):
+        return self.x_res is not None and self.y_res is not None
 
 
 def calc_targ_dist(craft: Craft, targ_pos: TargPos, cam: Cam):
@@ -135,8 +144,16 @@ class ManavsMagicCode(Node):
     def __init__(self):
         super().__init__("manavs_magic_code")
 
+        self.image_topic = cast(
+            str,
+            self.declare_parameter("image_topic", "/siyi_a8/image_raw").value,
+        )
+
         self.gps_sub = self.create_subscription(
             DronePosition, "AAV/current_gps_position", self.update_craft_gps, 10
+        )
+        self.image_sub = self.create_subscription(
+            Image, self.image_topic, self.update_camera_resolution, 10
         )
         self.yolo_sub = self.create_subscription(
             DetectionArray, "/yolo/detections", self.update_targ_gps, 10
@@ -165,10 +182,30 @@ class ManavsMagicCode(Node):
         # So do NOT wrap with math.radians() here.
         self.craft.yaw = float(msg_in.yaw)
 
+    def update_camera_resolution(self, msg_in: Image):
+        previous_resolution = (self.cam.x_res, self.cam.y_res)
+        self.cam.update_resolution(msg_in.width, msg_in.height)
+
+        if previous_resolution != (self.cam.x_res, self.cam.y_res):
+            self.get_logger().info(
+                f"Camera resolution updated to {self.cam.x_res}x{self.cam.y_res} from {self.image_topic}"
+            )
+
     def update_targ_gps(self, msg_in: DetectionArray):
         detections = list(msg_in.detections)
         if len(detections) == 0:
             return
+
+        if not self.cam.has_resolution():
+            self.get_logger().warning(
+                "Waiting for camera image resolution before processing detections."
+            )
+            return
+
+        x_res = self.cam.x_res
+        y_res = self.cam.y_res
+        assert x_res is not None
+        assert y_res is not None
 
         # Assume first detection for now
         det = detections[0]
@@ -176,8 +213,8 @@ class ManavsMagicCode(Node):
 
         # Normalize pixel coords
         # Expect center.x in [0..x_res], center.y in [0..y_res]
-        self.targ_pos.x_norm = float(center.x) / float(self.cam.x_res)
-        self.targ_pos.y_norm = float(center.y) / float(self.cam.y_res)
+        self.targ_pos.x_norm = float(center.x) / float(x_res)
+        self.targ_pos.y_norm = float(center.y) / float(y_res)
 
         # Clamp just in case upstream gives slightly out-of-range values
         self.targ_pos.x_norm = max(0.0, min(1.0, self.targ_pos.x_norm))
