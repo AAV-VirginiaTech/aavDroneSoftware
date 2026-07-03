@@ -197,6 +197,23 @@ class ObjectAlignmentController(Node):
 
             self.seen_target = True
 
+            if self.current_mission == Mission.GCP_MARKER_ALIGNING_CUASC.value:
+                drone_lat = float(self.current_gps_position.latitude)
+                drone_lon = float(self.current_gps_position.longitude)
+                target_lat = target_position.latitude
+                target_lon = target_position.longitude
+
+                # Simple distance approximation (degrees to meters, ~111km per degree)
+                lat_diff_m = (target_lat - drone_lat) * 111000
+                lon_diff_m = (target_lon - drone_lon) * 111000
+                distance_m = (lat_diff_m**2 + lon_diff_m**2) ** 0.5
+
+                self.get_logger().info(
+                    f"GCP Target: lat={target_lat}, lon={target_lon} | "
+                    f"Drone: lat={drone_lat}, lon={drone_lon}, alt={new_position.altitude}m | "
+                    f"Distance: {distance_m:.2f}m | Sending alignment command"
+                )
+
             self.new_position_pub.publish(new_position)
         elif self.state == OacState.ALIGNED_DESCENDING:
             new_position = NewDronePosition()
@@ -208,6 +225,17 @@ class ObjectAlignmentController(Node):
             self.new_position_pub.publish(new_position)
 
     def gps_position_callback(self, gps_position: DronePosition):
+        if (
+            self.current_mission == Mission.GCP_MARKER_ALIGNING_CUASC.value
+            and self.startup_time is not None
+        ):
+            if (
+                self.get_clock().now() - self.startup_time
+            ) > ObjectAlignmentController.STARTUP_DELAY:
+                self.get_logger().debug(
+                    f"Drone position: lat={gps_position.latitude}, lon={gps_position.longitude}, "
+                    f"alt={gps_position.altitude}m, yaw={gps_position.yaw}°"
+                )
         self.current_gps_position = gps_position
 
     def update_state_machine(self):
@@ -219,20 +247,30 @@ class ObjectAlignmentController(Node):
             > float(ObjectAlignmentController.TAKEOFF_THRESHOLD_ALTITUDE)
         ):
             self.startup_time = self.get_clock().now()
-            self.get_logger().info("Drone has taken off; starting startup delay")
+            self.get_logger().info(
+                f"Drone has taken off at altitude {self.current_gps_position.altitude}m; "
+                f"starting {ObjectAlignmentController.STARTUP_DELAY.nanoseconds / 1e9}s startup delay"
+            )
 
         # Wait for startup delay before processing state transitions
         if self.startup_time is not None and (
             self.get_clock().now() - self.startup_time
             < ObjectAlignmentController.STARTUP_DELAY
         ):
-            self.get_logger().info("Under startup delay")
+            if self.current_mission == Mission.GCP_MARKER_ALIGNING_CUASC.value:
+                elapsed = self.get_clock().now() - self.startup_time
+                self.get_logger().info(
+                    f"GCP Mission: Startup delay in progress ({elapsed.nanoseconds / 1e9:.1f}s / "
+                    f"{ObjectAlignmentController.STARTUP_DELAY.nanoseconds / 1e9}s)"
+                )
             return
 
         # Log when startup delay ends
         if self.startup_time is not None and not self.startup_delay_ended:
             self.startup_delay_ended = True
-            self.get_logger().info("Startup delay has ended")
+            self.get_logger().info(
+                "Startup delay has ended; GCP marker tracking is now active"
+            )
 
         match self.state:
             case OacState.SEEKING:
@@ -242,6 +280,13 @@ class ObjectAlignmentController(Node):
                     or self.current_mission == Mission.GCP_MARKER_ALIGNING_CUASC.value
                 ):
                     # if we have seen no targets, or the gps is not connected, reset the timer
+                    if (
+                        self.current_mission == Mission.GCP_MARKER_ALIGNING_CUASC.value
+                        and not self.seen_target
+                    ):
+                        self.get_logger().debug(
+                            "GCP Mission: Waiting for first target detection"
+                        )
                     self.time_marker = self.get_clock().now()
                 elif (
                     self.get_clock().now() - self.time_marker
