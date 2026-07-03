@@ -228,9 +228,7 @@ class TopicConverter(Node):
         )
         if should_publish:
             self.new_gps_publisher.publish(new_gps_msg)
-            self.get_logger().info(
-                f"Published new GPS position to ArduPilot: lat={new_gps_msg.latitude}, lon={new_gps_msg.longitude}, alt={new_gps_msg.altitude}, yaw={new_gps_msg.yaw}"
-            )
+            
 
     def call_mode_switch(self, mode: int = 4) -> bool:
         try:

@@ -70,6 +70,7 @@ class ObjectAlignmentController(Node):
     STARTUP_DELAY = Duration(seconds=45)
     SEEK_ALIGNMENT_DURATION = Duration(seconds=30)
     DESCENT_ALIGNMENT_DURATION = Duration(seconds=12)
+    STATUS_LOG_THROTTLE = Duration(seconds=5)
 
     LANDING_THRESHOLD_ALTITUDE: float = 0.5
     TAKEOFF_THRESHOLD_ALTITUDE: float = 3.0
@@ -133,6 +134,7 @@ class ObjectAlignmentController(Node):
         self.time_marker = self.get_clock().now()
         self.startup_time: Optional[Time] = None
         self.startup_delay_ended = False
+        self._last_log_time_ns: dict[str, int] = {}
 
         self.get_logger().info("Object Alignment Controller has been launched")
 
@@ -140,6 +142,18 @@ class ObjectAlignmentController(Node):
         new_mode = Mode()
         new_mode.mode = mode
         self.new_mode_pub.publish(new_mode)
+
+    def _log_throttled(self, level: str, key: str, message: str):
+        now_ns = self.get_clock().now().nanoseconds
+        last_logged_ns = self._last_log_time_ns.get(key)
+
+        if last_logged_ns is not None:
+            elapsed_ns = now_ns - last_logged_ns
+            if elapsed_ns < ObjectAlignmentController.STATUS_LOG_THROTTLE.nanoseconds:
+                return
+
+        getattr(self.get_logger(), level)(message)
+        self._last_log_time_ns[key] = now_ns
 
     def mode_callback(self, mode: Mode):
         self.current_mode = ArduPilotMode(mode.mode)
@@ -208,10 +222,12 @@ class ObjectAlignmentController(Node):
                 lon_diff_m = (target_lon - drone_lon) * 111000
                 distance_m = (lat_diff_m**2 + lon_diff_m**2) ** 0.5
 
-                self.get_logger().info(
+                self._log_throttled(
+                    "info",
+                    "gcp_target_alignment",
                     f"GCP Target: lat={target_lat}, lon={target_lon} | "
                     f"Drone: lat={drone_lat}, lon={drone_lon}, alt={new_position.altitude}m | "
-                    f"Distance: {distance_m:.2f}m | Sending alignment command"
+                    f"Distance: {distance_m:.2f}m | Sending alignment command",
                 )
 
             self.new_position_pub.publish(new_position)
@@ -259,9 +275,11 @@ class ObjectAlignmentController(Node):
         ):
             if self.current_mission == Mission.GCP_MARKER_ALIGNING_CUASC.value:
                 elapsed = self.get_clock().now() - self.startup_time
-                self.get_logger().info(
+                self._log_throttled(
+                    "info",
+                    "gcp_startup_delay_progress",
                     f"GCP Mission: Startup delay in progress ({elapsed.nanoseconds / 1e9:.1f}s / "
-                    f"{ObjectAlignmentController.STARTUP_DELAY.nanoseconds / 1e9}s)"
+                    f"{ObjectAlignmentController.STARTUP_DELAY.nanoseconds / 1e9}s)",
                 )
             return
 
@@ -284,8 +302,10 @@ class ObjectAlignmentController(Node):
                         self.current_mission == Mission.GCP_MARKER_ALIGNING_CUASC.value
                         and not self.seen_target
                     ):
-                        self.get_logger().debug(
-                            "GCP Mission: Waiting for first target detection"
+                        self._log_throttled(
+                            "debug",
+                            "gcp_waiting_for_first_target",
+                            "GCP Mission: Waiting for first target detection",
                         )
                     self.time_marker = self.get_clock().now()
                 elif (

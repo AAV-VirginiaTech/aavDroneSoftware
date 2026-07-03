@@ -123,13 +123,14 @@ def generate_launch_description():
     manavs_magic_code = Node(
         package="aav_software",
         executable="manavs_magic_code",
+        parameters=[{"image_topic": "/camera/image"}],
     )
 
     object_alignment_controller = Node(
         package="aav_software",
         executable="object_alignment_controller",
         parameters=[
-            {"current_mission": Mission.PACKAGE_DELIVERY_CUASC.value},
+            {"current_mission": Mission.GCP_MARKER_ALIGNING_CUASC.value},
             {"descent_alignment_altitude": 5.0},
             {"hardcoded_drop_altitude": 3.0},
             {"substructure_action_duration": 5},

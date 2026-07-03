@@ -9,6 +9,7 @@ from aav_software.manavs_magic_code import (
     Craft,
     ManavsMagicCode,
     TargPos,
+    _get_utm_crs_for_position,
     calc_targ_dist,
     calc_targ_loc,
 )
@@ -117,6 +118,20 @@ def test_calc_targ_loc_zero_offset_preserves_lat_lon():
 
     assert abs(targ.lat - craft.lat) < 1e-6
     assert abs(targ.lon - craft.lon) < 1e-6
+
+
+def test_get_utm_crs_for_position_changes_with_location():
+    virginia_crs = _get_utm_crs_for_position(37.2296, -80.4139)
+    sydney_crs = _get_utm_crs_for_position(-33.8688, 151.2093)
+
+    virginia_authority = virginia_crs.to_authority()
+    sydney_authority = sydney_crs.to_authority()
+
+    assert virginia_authority is not None
+    assert sydney_authority is not None
+    assert virginia_authority[1].startswith("326")
+    assert sydney_authority[1].startswith("327")
+    assert virginia_authority != sydney_authority
 
 
 def test_update_targ_gps_clamps_and_publishes_target_position():

@@ -8,6 +8,8 @@ import rclpy
 # For Publisher
 from aav_msgs.msg import DronePosition, TargetPosition
 from pyproj import CRS, Transformer
+from pyproj.aoi import AreaOfInterest
+from pyproj.database import query_utm_crs_info
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 
@@ -108,19 +110,31 @@ def calc_targ_dist(craft: Craft, targ_pos: TargPos, cam: Cam):
     return targ_pos, cam
 
 
+def _get_utm_crs_for_position(lat: float, lon: float) -> CRS:
+    utm_candidates = query_utm_crs_info(
+        datum_name="WGS 84",
+        area_of_interest=AreaOfInterest(
+            west_lon_degree=lon,
+            south_lat_degree=lat,
+            east_lon_degree=lon,
+            north_lat_degree=lat,
+        ),
+    )
+    if len(utm_candidates) == 0:
+        raise RuntimeError(
+            f"Unable to determine a UTM CRS for craft position ({lat}, {lon})."
+        )
+
+    return CRS.from_epsg(int(utm_candidates[0].code))
+
+
 def calc_targ_loc(craft: Craft, targ_pos: TargPos):
     """
-    Convert EN offsets (meters) to lat/lon using UTM as a local metric projection.
+    Convert EN offsets (meters) to lat/lon using the craft position's UTM zone.
     Assumes targ_pos.x_dist is EAST (+) and targ_pos.y_dist is NORTH (+).
     """
-    # Pick UTM zone based on craft longitude
-    utm_zone = math.floor((craft.lon + 180.0) / 6.0) + 1
-    is_northern = craft.lat >= 0.0
-
     crs_ll = CRS.from_epsg(4326)
-    crs_utm = CRS.from_dict(
-        {"proj": "utm", "zone": utm_zone, "datum": "WGS84", "south": not is_northern}
-    )
+    crs_utm = _get_utm_crs_for_position(craft.lat, craft.lon)
 
     to_utm = Transformer.from_crs(crs_ll, crs_utm, always_xy=True)
     to_ll = Transformer.from_crs(crs_utm, crs_ll, always_xy=True)
