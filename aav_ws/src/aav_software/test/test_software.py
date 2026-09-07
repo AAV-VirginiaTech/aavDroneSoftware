@@ -14,7 +14,7 @@ from aav_software.manavs_magic_code import (
     calc_targ_loc,
 )
 from aav_software.mission import Mission
-from aav_software.object_alignment_controller import (
+from aav_software.guidance import (
     ArduPilotMode,
     OacState,
     ObjectAlignmentController,

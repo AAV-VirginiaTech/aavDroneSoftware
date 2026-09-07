@@ -126,9 +126,9 @@ def generate_launch_description():
         parameters=[{"image_topic": "/camera/image"}],
     )
 
-    object_alignment_controller = Node(
+    guidance = Node(
         package="aav_software",
-        executable="object_alignment_controller",
+        executable="guidance",
         parameters=[
             {"current_mission": Mission.GCP_MARKER_ALIGNING_CUASC.value},
             {"descent_alignment_altitude": 5.0},
@@ -154,7 +154,7 @@ def generate_launch_description():
             yolo,
             location_logger,
             manavs_magic_code,
-            object_alignment_controller,
+            guidance,
             topic_converter,
         ]
     )

@@ -18,7 +18,7 @@ from .topic_converter_for_simulation import ArduPilotMode
 # Testing commands:
 """
 # Launch Object Alignment Controller
-ros2 run aav_software object_alignment_controller
+ros2 run aav_software guidance
 
 #View output topic
 ros2 topic echo /AAV/send_new_position
@@ -53,7 +53,11 @@ yaw: 0.0
 
 class OacState(Enum):
     """
-    Implements the state machine diagram shown on the Object Alignment Controller Miro board
+    "Guidance refers to the determination of the desired path of travel (the
+    "trajectory") from the vehicle's current location to a designated target,
+    as well as desired changes in velocity, rotation and acceleration for
+    following that path." - Wikipedia
+    Implements the state machine diagram shown on the Guidance Miro board
     """
 
     SEEKING = 0  # Monitoring for new targets; sending their positions while maintaining altitude
@@ -76,7 +80,7 @@ class ObjectAlignmentController(Node):
     TAKEOFF_THRESHOLD_ALTITUDE: float = 3.0
 
     def __init__(self):
-        super().__init__("object_alignment_controller")
+        super().__init__("guidance")
 
         self.mode_sub = self.create_subscription(
             Mode, "/AAV/current_mode", self.mode_callback, 10

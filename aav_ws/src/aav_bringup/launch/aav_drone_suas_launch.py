@@ -34,9 +34,9 @@ def generate_launch_description():
         executable="manavs_magic_code",
     )
 
-    object_alignment_controller = Node(
+    guidance = Node(
         package="aav_software",
-        executable="object_alignment_controller",
+        executable="guidance",
         parameters=[
             {"current_mission": Mission.PAYLOAD_DELIVERY_SUAS.value},
             {"descent_alignment_altitude": 46.3},
@@ -74,7 +74,7 @@ def generate_launch_description():
 
     ld.add_action(drone_mavros_and_camera_boot_launch)
     ld.add_action(manavs_magic_code)
-    ld.add_action(object_alignment_controller)
+    ld.add_action(guidance)
     ld.add_action(topic_converter)
     ld.add_action(yolo)
 
