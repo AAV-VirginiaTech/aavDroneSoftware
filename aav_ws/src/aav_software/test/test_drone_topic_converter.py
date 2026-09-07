@@ -9,7 +9,7 @@ import pytest
 from aav_msgs.msg import NewDronePosition
 from aav_software import topic_converter_for_drone as converter
 from builtin_interfaces.msg import Time
-from geometry_msgs.msg import Quaternion
+from geometry_msgs.msg import Quaternion, TwistWithCovarianceStamped
 from mavros_msgs.msg import GlobalPositionTarget, State
 from rclpy.qos import ReliabilityPolicy
 from sensor_msgs.msg import Imu, NavSatFix, NavSatStatus
@@ -29,6 +29,8 @@ def node(monkeypatch):
     instance.gps_received_at = None
     instance.relative_altitude_received_at = None
     instance.imu_received_at = None
+    instance.wind_velocity_enu = None
+    instance.wind_received_at = None
     instance.telemetry_timeout_sec = 2.0
     instance.latest_setpoint = None
     instance.last_setpoint_time = 0.0
@@ -104,6 +106,11 @@ def test_init_wires_relative_altitude_and_real_imu_with_sensor_qos(monkeypatch):
             instance.relative_altitude_callback,
         ),
         ("/mavros/imu/data", Imu, instance.imu_callback),
+        (
+            "/mavros/wind_estimation",
+            TwistWithCovarianceStamped,
+            instance.wind_callback,
+        ),
     ):
         assert by_topic[topic][0] is message_type
         assert by_topic[topic][2] == callback
@@ -112,9 +119,94 @@ def test_init_wires_relative_altitude_and_real_imu_with_sensor_qos(monkeypatch):
     publishers.assert_any_call(GlobalPositionTarget, "/mavros/setpoint_raw/global", 10)
     timers.assert_any_call(0.1, instance.publish_drone_position)
     timers.assert_any_call(0.2, instance.publish_setpoint)
+    timers.assert_any_call(5.0, instance.log_wind_direction)
     assert instance.current_relative_altitude is None
     assert instance.current_yaw is None
     assert not instance._telemetry_ready()
+
+
+def wind_estimate(east, north):
+    msg = TwistWithCovarianceStamped()
+    msg.twist.twist.linear.x = float(east)
+    msg.twist.twist.linear.y = float(north)
+    # This is the normal ArduPilot WIND covariance convention in MAVROS.
+    msg.twist.covariance[0] = -1.0
+    return msg
+
+
+@pytest.mark.parametrize(
+    "east,north,bearing,cardinal",
+    [
+        (0, -2, 0, "N"),
+        (-2, -2, 45, "NE"),
+        (-2, 0, 90, "E"),
+        (-2, 2, 135, "SE"),
+        (0, 2, 180, "S"),
+        (2, 2, 225, "SW"),
+        (2, 0, 270, "W"),
+        (2, -2, 315, "NW"),
+    ],
+)
+def test_wind_logs_from_bearing_in_compass_degrees(
+    node, east, north, bearing, cardinal
+):
+    node.state_callback(State(connected=True))
+    node.wind_callback(wind_estimate(east, north))
+    # Receipt alone must not log; the five-second timer controls output.
+    node.get_logger().info.assert_not_called()
+
+    node.log_wind_direction()
+
+    node.get_logger().info.assert_called_once_with(
+        f"Estimated wind FROM {bearing:.1f} deg ({cardinal}), "
+        f"horizontal speed {math.hypot(east, north):.2f} m/s (onboard EKF)"
+    )
+
+
+@pytest.mark.parametrize("east,north", [(0, 0), (0.03, 0.04)])
+def test_near_zero_wind_does_not_invent_a_direction(node, east, north):
+    node.state_callback(State(connected=True))
+    node.wind_callback(wind_estimate(east, north))
+    node.log_wind_direction()
+    assert "direction undefined" in node.get_logger().info.call_args.args[0]
+
+
+@pytest.mark.parametrize("east,north", [(math.nan, 2), (1, math.inf), (-math.inf, 0)])
+def test_invalid_wind_replaces_previous_estimate(node, east, north):
+    node.state_callback(State(connected=True))
+    node.wind_callback(wind_estimate(0, -2))
+    node.wind_callback(wind_estimate(east, north))
+    node.log_wind_direction()
+    assert node.wind_velocity_enu is None
+    assert "direction unavailable" in node.get_logger().info.call_args.args[0]
+
+
+@pytest.mark.parametrize("received_at", [None, 97.9, 101.0])
+def test_missing_or_stale_wind_is_not_logged_as_current(node, received_at):
+    node.state_callback(State(connected=True))
+    node.wind_callback(wind_estimate(0, -2))
+    node.wind_received_at = received_at
+    node.log_wind_direction()
+    assert "direction unavailable" in node.get_logger().info.call_args.args[0]
+
+
+def test_wind_requires_new_sample_after_disconnect(node):
+    node.state_callback(State(connected=True))
+    node.wind_callback(wind_estimate(0, -2))
+    node.state_callback(State(connected=False))
+    node.wind_callback(wind_estimate(2, 0))
+    assert node.wind_velocity_enu is None
+    node.state_callback(State(connected=True))
+    node.log_wind_direction()
+    assert "direction unavailable" in node.get_logger().info.call_args.args[0]
+
+
+def test_wind_is_optional_for_position_telemetry(node):
+    connect_with_telemetry(node)
+    node.log_wind_direction()
+    node.publish_drone_position()
+    assert node._telemetry_ready()
+    node.gps_pub.publish.assert_called_once()
 
 
 def test_airborne_startup_uses_fcu_relative_altitude_without_zeroing(node):
