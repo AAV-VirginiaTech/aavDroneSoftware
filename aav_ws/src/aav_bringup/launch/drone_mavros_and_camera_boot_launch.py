@@ -33,7 +33,9 @@ def generate_launch_description():
                             "sys_status",
                             "global_position",
                             "local_position",
+                            "imu",
                             "setpoint_position",
+                            "setpoint_raw",
                             "command",
                         ],
                     }

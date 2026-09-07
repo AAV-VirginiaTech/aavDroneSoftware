@@ -250,7 +250,7 @@ class ObjectAlignmentController(Node):
             ) > ObjectAlignmentController.STARTUP_DELAY:
                 self.get_logger().debug(
                     f"Drone position: lat={gps_position.latitude}, lon={gps_position.longitude}, "
-                    f"alt={gps_position.altitude}m, yaw={gps_position.yaw}°"
+                    f"alt={gps_position.altitude}m, yaw={gps_position.yaw} rad"
                 )
         self.current_gps_position = gps_position
 
