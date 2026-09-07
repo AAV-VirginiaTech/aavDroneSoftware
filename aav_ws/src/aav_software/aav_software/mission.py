@@ -3,7 +3,7 @@ from enum import Enum
 
 class Mission(Enum):
     """
-    Current mission being run by the Object Alignment Controller.
+    Current mission being run by the Guidance System.
     Used to determine which parameters to use and which actions to take at various stages of the state machine.
     """
 

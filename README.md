@@ -62,7 +62,7 @@ Used to log the locations and labels of objects/targets we detect through our vi
 ### Manav's Magic Code
 Used to detect the latitude and longitude of objects/targets on the ground that are detected through our vision recognition.
 
-### Object Alignment Controller
+### Guidance System
 This is the main software that controls the drone's autonomous logic. It is designed as a Finite State Machine. [Link to diagram of Finite State Machine](https://miro.com/app/board/uXjVIjMwI14=/?focusWidget=3458764648320440275).
 
 ### Topic Converter
@@ -159,12 +159,12 @@ Below is a link to an RQT Graph diagram that explains how all of our software co
 https://miro.com/app/board/uXjVIjMwI14=/?focusWidget=3458764645715611275
 
 
-Object Alignment Controller:
+Guidance System:
 This is the main file that actually does the logic for our autonomous navigation and alignment.
 You will definitely have to adapt this code in order to fit new competition guidelines and missions.
 It is a Finite State Machine.
 
-Below is a diagram for the object alignment controller:
+Below is a diagram for the guidance system:
 https://miro.com/app/board/uXjVIjMwI14=/?focusWidget=3458764648320440275
 
 AAV Test

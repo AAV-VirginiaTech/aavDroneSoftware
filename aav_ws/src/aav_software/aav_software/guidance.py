@@ -17,7 +17,7 @@ from .topic_converter_for_simulation import ArduPilotMode
 
 # Testing commands:
 """
-# Launch Object Alignment Controller
+# Launch Guidance System
 ros2 run aav_software guidance
 
 #View output topic
@@ -70,7 +70,7 @@ class OacState(Enum):
     RETURNING = 7  # Back in AUTO mode; done
 
 
-class ObjectAlignmentController(Node):
+class Guidance(Node):
     STARTUP_DELAY = Duration(seconds=45)
     SEEK_ALIGNMENT_DURATION = Duration(seconds=30)
     DESCENT_ALIGNMENT_DURATION = Duration(seconds=12)
@@ -140,7 +140,7 @@ class ObjectAlignmentController(Node):
         self.startup_delay_ended = False
         self._last_log_time_ns: dict[str, int] = {}
 
-        self.get_logger().info("Object Alignment Controller has been launched")
+        self.get_logger().info("Guidance System has been launched")
 
     def send_new_mode(self, mode: ArduPilotMode):
         new_mode = Mode()
@@ -153,7 +153,7 @@ class ObjectAlignmentController(Node):
 
         if last_logged_ns is not None:
             elapsed_ns = now_ns - last_logged_ns
-            if elapsed_ns < ObjectAlignmentController.STATUS_LOG_THROTTLE.nanoseconds:
+            if elapsed_ns < Guidance.STATUS_LOG_THROTTLE.nanoseconds:
                 return
 
         getattr(self.get_logger(), level)(message)
@@ -171,7 +171,7 @@ class ObjectAlignmentController(Node):
             self.startup_time is not None
             and (
                 self.get_clock().now() - self.startup_time
-                < ObjectAlignmentController.STARTUP_DELAY
+                < Guidance.STARTUP_DELAY
             )
         ):
             return
@@ -251,7 +251,7 @@ class ObjectAlignmentController(Node):
         ):
             if (
                 self.get_clock().now() - self.startup_time
-            ) > ObjectAlignmentController.STARTUP_DELAY:
+            ) > Guidance.STARTUP_DELAY:
                 self.get_logger().debug(
                     f"Drone position: lat={gps_position.latitude}, lon={gps_position.longitude}, "
                     f"alt={gps_position.altitude}m, yaw={gps_position.yaw} rad"
@@ -264,18 +264,18 @@ class ObjectAlignmentController(Node):
             self.startup_time is None
             and self.current_gps_position
             and float(self.current_gps_position.altitude)
-            > float(ObjectAlignmentController.TAKEOFF_THRESHOLD_ALTITUDE)
+            > float(Guidance.TAKEOFF_THRESHOLD_ALTITUDE)
         ):
             self.startup_time = self.get_clock().now()
             self.get_logger().info(
                 f"Drone has taken off at altitude {self.current_gps_position.altitude}m; "
-                f"starting {ObjectAlignmentController.STARTUP_DELAY.nanoseconds / 1e9}s startup delay"
+                f"starting {Guidance.STARTUP_DELAY.nanoseconds / 1e9}s startup delay"
             )
 
         # Wait for startup delay before processing state transitions
         if self.startup_time is not None and (
             self.get_clock().now() - self.startup_time
-            < ObjectAlignmentController.STARTUP_DELAY
+            < Guidance.STARTUP_DELAY
         ):
             if self.current_mission == Mission.GCP_MARKER_ALIGNING_CUASC.value:
                 elapsed = self.get_clock().now() - self.startup_time
@@ -283,7 +283,7 @@ class ObjectAlignmentController(Node):
                     "info",
                     "gcp_startup_delay_progress",
                     f"GCP Mission: Startup delay in progress ({elapsed.nanoseconds / 1e9:.1f}s / "
-                    f"{ObjectAlignmentController.STARTUP_DELAY.nanoseconds / 1e9}s)",
+                    f"{Guidance.STARTUP_DELAY.nanoseconds / 1e9}s)",
                 )
             return
 
@@ -314,7 +314,7 @@ class ObjectAlignmentController(Node):
                     self.time_marker = self.get_clock().now()
                 elif (
                     self.get_clock().now() - self.time_marker
-                    > ObjectAlignmentController.SEEK_ALIGNMENT_DURATION
+                    > Guidance.SEEK_ALIGNMENT_DURATION
                 ):
                     # if the timer has expired (we saw our first target 60 seconds ago), start descending
 
@@ -336,7 +336,7 @@ class ObjectAlignmentController(Node):
                         # allow 8 seconds for final alignment
                         if (
                             self.get_clock().now() - self.time_marker
-                            < ObjectAlignmentController.DESCENT_ALIGNMENT_DURATION
+                            < Guidance.DESCENT_ALIGNMENT_DURATION
                         ):
                             pass
                         # if the timer has expired, move on to final descent
@@ -422,7 +422,7 @@ class ObjectAlignmentController(Node):
             case OacState.LANDING:
                 if self.current_gps_position and float(
                     self.current_gps_position.altitude
-                ) < float(ObjectAlignmentController.LANDING_THRESHOLD_ALTITUDE):
+                ) < float(Guidance.LANDING_THRESHOLD_ALTITUDE):
                     self.get_logger().info("Dropping CUASC package")
                     try:
                         run_payload_drop_sequence(self, False, 1500, 8)
@@ -446,7 +446,7 @@ class ObjectAlignmentController(Node):
             case OacState.TAKING_OFF:
                 if self.current_gps_position and float(
                     self.current_gps_position.altitude
-                ) > float(ObjectAlignmentController.TAKEOFF_THRESHOLD_ALTITUDE):
+                ) > float(Guidance.TAKEOFF_THRESHOLD_ALTITUDE):
                     self.send_new_mode(ArduPilotMode.AUTO)
 
                     self.state = OacState.RETURNING
@@ -459,7 +459,7 @@ class ObjectAlignmentController(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = ObjectAlignmentController()
+    node = Guidance()
     rclpy.spin(node)
     rclpy.shutdown()
 
