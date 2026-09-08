@@ -39,8 +39,8 @@ def generate_launch_description():
         executable="object_alignment_controller",
         parameters=[
             {"current_mission": Mission.PAYLOAD_DELIVERY_SUAS.value},
-            {"descent_alignment_altitude": 46.3},
-            {"hardcoded_drop_altitude": 46.3},
+            {"descent_alignment_altitude": 47},
+            {"hardcoded_drop_altitude": 47},
             {"substructure_action_duration": 30},
         ],
     )
