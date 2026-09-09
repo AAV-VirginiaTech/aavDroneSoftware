@@ -144,13 +144,9 @@ def test_update_targ_gps_clamps_and_publishes_target_position():
     node_any.craft.yaw = 0.0
     node_any.targ_pos = TargPos()
     node_any.cam = Cam()
-    node_any.image_topic = "/siyi_a8/image_raw"
     publisher = CapturingPublisher()
     node_any.publisher = publisher
     node_any.get_logger = lambda: FakeLogger()
-
-    image_msg = SimpleNamespace(width=1280, height=720)
-    node.update_camera_resolution(cast(Any, image_msg))
 
     detection = SimpleNamespace(
         class_name="Bullseye",
@@ -168,7 +164,7 @@ def test_update_targ_gps_clamps_and_publishes_target_position():
     assert publisher.messages[0].object_label == "Bullseye"
 
 
-def test_update_camera_resolution_drives_target_normalization():
+def test_fixed_camera_resolution_drives_target_normalization():
     node = ManavsMagicCode.__new__(ManavsMagicCode)
     node_any = cast(Any, node)
     node_any.craft = Craft()
@@ -178,17 +174,14 @@ def test_update_camera_resolution_drives_target_normalization():
     node_any.craft.yaw = 0.0
     node_any.targ_pos = TargPos()
     node_any.cam = Cam()
-    node_any.image_topic = "/siyi_a8/image_raw"
     publisher = CapturingPublisher()
     node_any.publisher = publisher
     node_any.get_logger = lambda: FakeLogger()
 
-    node.update_camera_resolution(cast(Any, SimpleNamespace(width=1280, height=720)))
-
     detection = SimpleNamespace(
         class_name="Bullseye",
         bbox=SimpleNamespace(
-            center=SimpleNamespace(position=SimpleNamespace(x=640.0, y=360.0))
+            center=SimpleNamespace(position=SimpleNamespace(x=960.0, y=540.0))
         ),
     )
     msg = SimpleNamespace(detections=[detection])
