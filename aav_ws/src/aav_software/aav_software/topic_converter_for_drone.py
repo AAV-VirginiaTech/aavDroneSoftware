@@ -5,7 +5,6 @@ from typing import cast
 
 import rclpy
 from aav_msgs.msg import DronePosition, Mode, NewDronePosition
-from geometry_msgs.msg import TwistWithCovarianceStamped
 from mavros_msgs.msg import GlobalPositionTarget, State
 from mavros_msgs.srv import CommandBool, CommandTOL, SetMode
 from rclpy.node import Node
@@ -111,8 +110,6 @@ class TopicConverter(Node):
         self.gps_received_at: float | None = None
         self.relative_altitude_received_at: float | None = None
         self.imu_received_at: float | None = None
-        self.wind_velocity_enu: tuple[float, float] | None = None
-        self.wind_received_at: float | None = None
 
         self.telemetry_timeout_sec = cast(
             float, self.declare_parameter("telemetry_timeout_sec", 2.0).value
@@ -153,14 +150,6 @@ class TopicConverter(Node):
         # data. Subscribe to actual attitude updates so readiness is observable.
         self.create_subscription(Imu, "/mavros/imu/data", self.imu_callback, sensor_qos)
 
-        # ArduPilot's onboard EKF estimate; no external wind sensor required.
-        self.create_subscription(
-            TwistWithCovarianceStamped,
-            "/mavros/wind_estimation",
-            self.wind_callback,
-            sensor_qos,
-        )
-
         # =========================
         # SUBSCRIBERS (AAV)
         # =========================
@@ -189,7 +178,6 @@ class TopicConverter(Node):
         self.create_timer(0.1, self.publish_drone_position)
         # Refresh accepted goals at 5 Hz while telemetry and the goal are fresh.
         self.create_timer(0.2, self.publish_setpoint)
-        self.create_timer(5.0, self.log_wind_direction)
 
     # =========================
     # UTIL FUNCTIONS
@@ -235,8 +223,6 @@ class TopicConverter(Node):
         self.gps_received_at = None
         self.relative_altitude_received_at = None
         self.imu_received_at = None
-        self.wind_velocity_enu = None
-        self.wind_received_at = None
         self.latest_setpoint = None
 
     def _valid_coordinates(self, latitude, longitude):
@@ -263,52 +249,6 @@ class TopicConverter(Node):
     # =========================
     # MAVROS CALLBACKS
     # =========================
-
-    def wind_callback(self, msg: TwistWithCovarianceStamped):
-        velocity = msg.twist.twist.linear
-        # MAVROS publishes wind velocity TO the destination in earth-fixed ENU.
-        # ArduPilot sets covariance[0] = -1 for unknown covariance, not bad wind.
-        if not self.connected or not all(
-            math.isfinite(value) for value in (velocity.x, velocity.y)
-        ):
-            self.wind_velocity_enu = None
-            self.wind_received_at = None
-            return
-        self.wind_velocity_enu = (velocity.x, velocity.y)
-        self.wind_received_at = time.monotonic()
-
-    def log_wind_direction(self):
-        if (
-            not self.connected
-            or self.wind_velocity_enu is None
-            or self.wind_received_at is None
-            or not 0.0
-            <= time.monotonic() - self.wind_received_at
-            <= self.telemetry_timeout_sec
-        ):
-            self.get_logger().info(
-                "Wind direction unavailable: waiting for a fresh onboard EKF "
-                "estimate on /mavros/wind_estimation. Check EKF3 drag estimation "
-                "and the MAVLink WIND stream."
-            )
-            return
-
-        east, north = self.wind_velocity_enu
-        speed = math.hypot(east, north)
-        if speed < 0.1:
-            self.get_logger().info(
-                "Estimated wind direction undefined: horizontal wind below 0.1 m/s"
-            )
-            return
-
-        # Meteorological FROM bearing: clockwise from North (N=0, E=90).
-        direction = math.degrees(math.atan2(-east, -north)) % 360.0
-        compass = ("N", "NE", "E", "SE", "S", "SW", "W", "NW")
-        cardinal = compass[int((direction + 22.5) / 45.0) % len(compass)]
-        self.get_logger().info(
-            f"Estimated wind FROM {direction:.1f} deg ({cardinal}), "
-            f"horizontal speed {speed:.2f} m/s (onboard EKF)"
-        )
 
     def state_callback(self, msg: State):
         if not msg.connected or msg.connected != self.connected:

@@ -34,7 +34,6 @@ def generate_launch_description():
                             "global_position",
                             "local_position",
                             "imu",
-                            "wind_estimation",
                             "setpoint_position",
                             "setpoint_raw",
                             "command",
@@ -42,8 +41,6 @@ def generate_launch_description():
                     }
                 ],
             ),
-            # All streams includes EXTRA3, carrying ArduPilot's WIND estimate
-            # when EKF3 drag estimation is configured on the flight controller.
             TimerAction(
                 period=3.0,
                 actions=[
