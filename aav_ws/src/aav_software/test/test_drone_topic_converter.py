@@ -1,35 +1,40 @@
-"""Regression coverage for the hardware converter's altitude and attitude contract."""
+"""Regression coverage for the original command path with corrected AMSL altitude."""
 
 import math
+import subprocess
 from types import SimpleNamespace
 from typing import Any, cast
 from unittest.mock import Mock
 
 import pytest
-from aav_msgs.msg import NewDronePosition
+from aav_msgs.msg import Mode, NewDronePosition
 from aav_software import topic_converter_for_drone as converter
 from builtin_interfaces.msg import Time
-from geometry_msgs.msg import Quaternion
-from mavros_msgs.msg import GlobalPositionTarget, State
+from geographic_msgs.msg import GeoPoseStamped
+from geometry_msgs.msg import PoseStamped
+from mavros_msgs.msg import State
 from rclpy.qos import ReliabilityPolicy
-from sensor_msgs.msg import Imu, NavSatFix, NavSatStatus
-from std_msgs.msg import Float64
+from sensor_msgs.msg import NavSatFix
 
 
 @pytest.fixture
-def node(monkeypatch):
-    """Exercise production callbacks without starting a ROS executor or services."""
+def geoid_run(monkeypatch):
+    run = Mock(return_value=subprocess.CompletedProcess([], 0, stdout="30.0\n"))
+    monkeypatch.setattr(converter.subprocess, "run", run)
+    return run
+
+
+@pytest.fixture
+def node(monkeypatch, geoid_run):
     instance = cast(Any, converter.TopicConverter.__new__(converter.TopicConverter))
-    instance.connected = False
-    instance.current_mode = None
+    instance.home_altitude = None
+    instance.home_latitude = None
+    instance.home_longitude = None
+    instance.home_altitude_amsl = None
     instance.current_latitude = None
     instance.current_longitude = None
-    instance.current_relative_altitude = None
-    instance.current_yaw = None
-    instance.gps_received_at = None
-    instance.relative_altitude_received_at = None
-    instance.imu_received_at = None
-    instance.telemetry_timeout_sec = 2.0
+    instance.current_yaw = 0.0
+    instance.current_mode = None
     instance.latest_setpoint = None
     instance.last_setpoint_time = 0.0
     instance.mode_pub = Mock()
@@ -41,357 +46,262 @@ def node(monkeypatch):
             now=lambda: SimpleNamespace(to_msg=lambda: Time(sec=123))
         )
     )
-    monkeypatch.setattr(converter.time, "monotonic", lambda: 100.0)
+    monkeypatch.setattr(converter.time, "time", lambda: 100.0)
     return instance
 
 
-def gps_fix(altitude=500.0):
-    msg = NavSatFix()
-    msg.status.status = NavSatStatus.STATUS_FIX
-    msg.latitude = 37.2296
-    msg.longitude = -80.4139
-    msg.altitude = altitude
-    return msg
+def gps_fix(altitude=530.0, latitude=37.2296, longitude=-80.4139):
+    return NavSatFix(latitude=latitude, longitude=longitude, altitude=altitude)
 
 
-def imu_attitude(yaw=0.0, roll=0.0, pitch=0.0):
-    """Build a full body-to-ENU quaternion, including aircraft roll and pitch."""
-    cr, sr = math.cos(roll / 2), math.sin(roll / 2)
-    cp, sp = math.cos(pitch / 2), math.sin(pitch / 2)
-    cy, sy = math.cos(yaw / 2), math.sin(yaw / 2)
-    msg = Imu()
-    msg.orientation = Quaternion(
-        x=sr * cp * cy - cr * sp * sy,
-        y=cr * sp * cy + sr * cp * sy,
-        z=cr * cp * sy - sr * sp * cy,
-        w=cr * cp * cy + sr * sp * sy,
-    )
-    return msg
-
-
-def connect_with_telemetry(node, altitude=25.0, yaw=0.0):
-    node.state_callback(State(connected=True, mode="GUIDED"))
-    node.gps_callback(gps_fix())
-    node.relative_altitude_callback(Float64(data=altitude))
-    node.imu_callback(imu_attitude(yaw=yaw))
-
-
-def position_goal(altitude=20.0):
+def goal(altitude=20.0):
     return NewDronePosition(latitude=37.2297, longitude=-80.4138, altitude=altitude)
 
 
-def test_init_wires_relative_altitude_and_real_imu_with_sensor_qos(monkeypatch):
+def pose(yaw):
+    msg = PoseStamped()
+    msg.pose.orientation.z = math.sin(yaw / 2)
+    msg.pose.orientation.w = math.cos(yaw / 2)
+    return msg
+
+
+def test_original_topics_qos_and_timer_are_restored(monkeypatch):
     monkeypatch.setattr(converter.Node, "__init__", lambda self, name: None)
     monkeypatch.setattr(converter.Node, "get_logger", Mock(return_value=Mock()))
     monkeypatch.setattr(
-        converter.Node,
-        "declare_parameter",
-        Mock(return_value=SimpleNamespace(value=2.0)),
+        converter.subprocess,
+        "run",
+        Mock(return_value=subprocess.CompletedProcess([], 0, stdout="-30.0\n")),
     )
     subscriptions, publishers, timers = Mock(), Mock(), Mock()
     monkeypatch.setattr(converter.Node, "create_subscription", subscriptions)
     monkeypatch.setattr(converter.Node, "create_publisher", publishers)
     monkeypatch.setattr(converter.Node, "create_timer", timers)
 
-    instance = converter.TopicConverter()
+    converter.TopicConverter()
 
     by_topic = {call.args[1]: call.args for call in subscriptions.call_args_list}
-    for topic, message_type, callback in (
-        ("/mavros/global_position/global", NavSatFix, instance.gps_callback),
-        (
-            "/mavros/global_position/rel_alt",
-            Float64,
-            instance.relative_altitude_callback,
-        ),
-        ("/mavros/imu/data", Imu, instance.imu_callback),
-    ):
-        assert by_topic[topic][0] is message_type
-        assert by_topic[topic][2] == callback
+    assert set(by_topic) == {
+        "/mavros/state",
+        "/mavros/global_position/global",
+        "/mavros/local_position/pose",
+        "/AAV/set_mode",
+        "/AAV/send_new_position",
+    }
+    for topic in ("/mavros/global_position/global", "/mavros/local_position/pose"):
         assert by_topic[topic][3].reliability == ReliabilityPolicy.BEST_EFFORT
-    assert "/mavros/local_position/pose" not in by_topic
-    publishers.assert_any_call(GlobalPositionTarget, "/mavros/setpoint_raw/global", 10)
-    timers.assert_any_call(0.1, instance.publish_drone_position)
-    timers.assert_any_call(0.2, instance.publish_setpoint)
-    assert instance.current_relative_altitude is None
-    assert instance.current_yaw is None
-    assert not instance._telemetry_ready()
+        assert by_topic[topic][3].depth == 10
+    publishers.assert_any_call(GeoPoseStamped, "/mavros/setpoint_position/global", 10)
+    assert len(timers.call_args_list) == 1
+    assert timers.call_args.args[0] == 0.2
 
 
-def test_airborne_startup_uses_fcu_relative_altitude_without_zeroing(node):
-    connect_with_telemetry(node, altitude=25.0)
+def test_startup_geoid_check_logs_success(node, geoid_run):
+    node.check_geoid_eval()
+    geoid_run.assert_called_with(
+        ["GeoidEval", "-n", "egm96-5"],
+        input="0 0\n",
+        text=True,
+        capture_output=True,
+        check=True,
+        timeout=1.0,
+    )
+    assert "Startup geoid check passed" in node.get_logger().info.call_args.args[0]
 
-    node.publish_drone_position()
 
-    node.gps_pub.publish.assert_called_once()
+@pytest.mark.parametrize(
+    "failure,expected",
+    [
+        (FileNotFoundError(), "GeoidEval executable not found"),
+        (
+            subprocess.CalledProcessError(1, "GeoidEval", stderr="egm96-5.pgm missing"),
+            "could not load egm96-5",
+        ),
+    ],
+)
+def test_startup_geoid_check_logs_actionable_failure(
+    node, geoid_run, failure, expected
+):
+    geoid_run.side_effect = failure
+
+    node.check_geoid_eval()
+
+    assert expected in node.get_logger().error.call_args.args[0]
+    assert (
+        "Position commands requiring altitude conversion will be rejected"
+        in (node.get_logger().error.call_args.args[0])
+    )
+
+
+def test_receiving_position_uses_first_fix_and_local_pose_without_geoid_lookup(
+    node, geoid_run
+):
+    node.pose_callback(pose(0.5))
+    node.gps_callback(gps_fix())
+    assert node.gps_pub.publish.call_args.args[0].altitude == 0.0
+
+    node.gps_callback(gps_fix(altitude=550.0))
+
     position = node.gps_pub.publish.call_args.args[0]
     assert position.latitude == pytest.approx(37.2296)
     assert position.longitude == pytest.approx(-80.4139)
-    assert position.altitude == pytest.approx(25.0)
-    assert position.yaw == pytest.approx(0.0)
+    assert position.altitude == pytest.approx(20.0)
+    assert position.yaw == pytest.approx(0.5)
+    assert node.home_altitude == 530.0
+    geoid_run.assert_not_called()
 
 
-@pytest.mark.parametrize("gps_altitude", [-30.0, 500.0, 4000.0, math.nan])
-def test_gps_ellipsoid_altitude_never_changes_relative_altitude_or_goal(
-    node, gps_altitude
+@pytest.mark.parametrize("geoid_height", [-30.0, 0.0, 30.0])
+def test_global_target_corrects_ellipsoid_to_amsl_with_signed_geoid_height(
+    node, geoid_run, geoid_height
 ):
-    connect_with_telemetry(node, altitude=25.0)
-    node.gps_callback(gps_fix(altitude=gps_altitude))
+    geoid_run.return_value.stdout = str(geoid_height)
+    node.gps_callback(gps_fix())
+    node.pose_callback(pose(math.pi / 2))
 
-    node.publish_drone_position()
-    node.new_position_callback(position_goal(altitude=20.0))
-    node.publish_setpoint()
-
-    assert node.gps_pub.publish.call_args.args[0].altitude == pytest.approx(25.0)
-    assert node.setpoint_pub.publish.call_args.args[0].altitude == pytest.approx(20.0)
-
-
-@pytest.mark.parametrize("yaw", [0.0, math.pi / 2, math.pi, -math.pi / 2])
-@pytest.mark.parametrize("roll,pitch", [(0.0, 0.0), (0.2, -0.3)])
-def test_imu_cardinal_yaw_survives_roll_and_pitch(node, yaw, roll, pitch):
-    connect_with_telemetry(node)
-    node.imu_callback(imu_attitude(yaw=yaw, roll=roll, pitch=pitch))
-
-    node.publish_drone_position()
-    node.new_position_callback(position_goal())
-
-    actual_yaw = node.gps_pub.publish.call_args.args[0].yaw
-    assert math.sin(actual_yaw - yaw) == pytest.approx(0.0, abs=1e-7)
-    assert math.cos(actual_yaw - yaw) == pytest.approx(1.0, abs=1e-7)
-    assert node.latest_setpoint.yaw == pytest.approx(yaw, abs=1e-6)
-
-
-def test_raw_global_goal_enables_position_and_enu_yaw_with_home_relative_altitude(node):
-    connect_with_telemetry(node, yaw=math.pi / 2)
-    goal = position_goal(altitude=20.0)
-
-    node.new_position_callback(goal)
+    node.new_position_callback(goal())
     node.publish_setpoint()
 
     target = node.setpoint_pub.publish.call_args.args[0]
-    assert isinstance(target, GlobalPositionTarget)
-    assert target.coordinate_frame == GlobalPositionTarget.FRAME_GLOBAL_REL_ALT == 6
-    assert target.type_mask == 2552
-    assert (
-        target.type_mask
-        & (
-            GlobalPositionTarget.IGNORE_LATITUDE
-            | GlobalPositionTarget.IGNORE_LONGITUDE
-            | GlobalPositionTarget.IGNORE_ALTITUDE
-            | GlobalPositionTarget.IGNORE_YAW
-        )
-        == 0
-    )
-    assert target.latitude == goal.latitude
-    assert target.longitude == goal.longitude
-    assert target.altitude == pytest.approx(20.0)
-    # MAVROS owns ENU-to-NED conversion; this layer must not pre-convert North to zero.
-    assert target.yaw == pytest.approx(math.pi / 2)
+    assert isinstance(target, GeoPoseStamped)
+    assert target.header.frame_id == "map"
     assert target.header.stamp.sec == 123
+    assert target.pose.position.latitude == pytest.approx(37.2297)
+    assert target.pose.position.longitude == pytest.approx(-80.4138)
+    assert target.pose.position.altitude == pytest.approx(550.0 - geoid_height)
+    assert target.pose.orientation.z == pytest.approx(math.sin(math.pi / 4))
+    assert target.pose.orientation.w == pytest.approx(math.cos(math.pi / 4))
 
 
-@pytest.mark.parametrize(
-    "timestamp_field",
-    ["gps_received_at", "relative_altitude_received_at", "imu_received_at"],
-)
-@pytest.mark.parametrize("timestamp", [None, 97.9])
-def test_missing_or_stale_sensor_blocks_position_and_new_goals(
-    node, timestamp_field, timestamp
+def test_home_lookup_uses_first_location_even_if_drone_moves_before_first_goal(
+    node, geoid_run
 ):
-    connect_with_telemetry(node)
-    setattr(node, timestamp_field, timestamp)
-
-    node.publish_drone_position()
-    node.new_position_callback(position_goal())
-
-    assert not node._telemetry_ready()
-    node.gps_pub.publish.assert_not_called()
-    assert node.latest_setpoint is None
-
-
-def test_zero_yaw_requires_an_actual_imu_sample(node):
-    node.state_callback(State(connected=True, mode="GUIDED"))
     node.gps_callback(gps_fix())
-    node.relative_altitude_callback(Float64(data=25.0))
-    node.publish_drone_position()
-    assert node.current_yaw is None
-    node.gps_pub.publish.assert_not_called()
+    node.gps_callback(gps_fix(altitude=560.0, latitude=38.0, longitude=-81.0))
+    node.new_position_callback(goal())
+    assert node.latest_setpoint.pose.position.altitude == pytest.approx(520.0)
+    geoid_run.assert_called_once_with(
+        ["GeoidEval", "-n", "egm96-5"],
+        input="37.2296 -80.4139\n",
+        text=True,
+        capture_output=True,
+        check=True,
+        timeout=1.0,
+    )
 
-    node.imu_callback(imu_attitude(yaw=0.0))
-    node.publish_drone_position()
-    assert node._telemetry_ready()
-    assert node.gps_pub.publish.call_args.args[0].yaw == pytest.approx(0.0)
+
+def test_successful_conversion_is_cached_across_goals_and_timer_ticks(node, geoid_run):
+    node.gps_callback(gps_fix())
+    node.new_position_callback(goal())
+    for _ in range(3):
+        node.publish_setpoint()
+    node.gps_callback(gps_fix(altitude=570.0))
+    node.new_position_callback(goal(altitude=10.0))
+    node.publish_setpoint()
+
+    assert node.latest_setpoint.pose.position.altitude == pytest.approx(510.0)
+    geoid_run.assert_called_once()
+
+
+def test_zero_startup_altitude_is_kept_as_reference(node):
+    node.gps_callback(gps_fix(altitude=0.0))
+    node.gps_callback(gps_fix(altitude=15.0))
+    node.new_position_callback(goal())
+    assert node.home_altitude == 0.0
+    assert node.gps_pub.publish.call_args.args[0].altitude == pytest.approx(15.0)
+    assert node.latest_setpoint.pose.position.altitude == pytest.approx(-10.0)
+
+
+def test_command_needs_no_imu_connection_or_freshness_gate(node, monkeypatch):
+    node.gps_callback(gps_fix())
+    monkeypatch.setattr(converter.time, "time", lambda: 1000.0)
+    node.new_position_callback(goal())
+    node.publish_setpoint()
+    assert node.latest_setpoint.pose.orientation.z == 0.0
+    assert node.latest_setpoint.pose.orientation.w == 1.0
+    node.setpoint_pub.publish.assert_called_once()
+
+
+def test_heading_is_captured_when_goal_arrives(node):
+    node.gps_callback(gps_fix())
+    node.pose_callback(pose(0.5))
+    node.new_position_callback(goal())
+    node.pose_callback(pose(1.0))
+    node.publish_setpoint()
+    assert node.latest_setpoint.pose.orientation.z == pytest.approx(math.sin(0.25))
+
+
+def test_original_five_second_window_and_new_goal_restart(node, monkeypatch):
+    node.gps_callback(gps_fix())
+    node.new_position_callback(goal())
+    monkeypatch.setattr(converter.time, "time", lambda: 105.0)
+    node.publish_setpoint()
+    node.setpoint_pub.publish.assert_called_once()
+    monkeypatch.setattr(converter.time, "time", lambda: 105.1)
+    node.publish_setpoint()
+    node.setpoint_pub.publish.assert_called_once()
+    node.new_position_callback(goal(altitude=10.0))
+    node.publish_setpoint()
+    assert node.setpoint_pub.publish.call_count == 2
+
+
+def test_goal_before_first_gps_does_not_guess_absolute_altitude(node, geoid_run):
+    node.new_position_callback(goal())
+    node.publish_setpoint()
+    node.setpoint_pub.publish.assert_not_called()
+    geoid_run.assert_not_called()
+    assert "first GPS reading" in node.get_logger().error.call_args.args[0]
 
 
 @pytest.mark.parametrize(
-    "quaternion",
-    [
-        Quaternion(),
-        Quaternion(w=2.0),
-        Quaternion(x=math.nan, w=1.0),
-        Quaternion(z=math.inf, w=1.0),
-    ],
+    "failure", [FileNotFoundError(), subprocess.TimeoutExpired("GeoidEval", 1.0)]
 )
-def test_invalid_imu_quaternion_invalidates_previous_yaw(node, quaternion):
-    connect_with_telemetry(node, yaw=1.0)
-    imu = Imu()
-    imu.orientation = quaternion
-
-    node.imu_callback(imu)
-    node.publish_drone_position()
-
-    assert not node._telemetry_ready()
-    node.gps_pub.publish.assert_not_called()
-    with pytest.raises(ValueError):
-        node.quaternion_to_yaw(quaternion)
-
-
-def test_unavailable_imu_orientation_invalidates_previous_yaw(node):
-    connect_with_telemetry(node)
-    imu = imu_attitude(yaw=1.0)
-    imu.orientation_covariance[0] = -1.0
-
-    node.imu_callback(imu)
-    node.publish_drone_position()
-
-    assert not node._telemetry_ready()
-    node.gps_pub.publish.assert_not_called()
-
-
-def test_small_quaternion_roundoff_is_normalized_before_extracting_yaw(node):
-    quaternion = imu_attitude(yaw=1.0, roll=0.2, pitch=-0.3).orientation
-    quaternion.x *= 1.005
-    quaternion.y *= 1.005
-    quaternion.z *= 1.005
-    quaternion.w *= 1.005
-
-    assert node.quaternion_to_yaw(quaternion) == pytest.approx(1.0, abs=1e-7)
-
-
-@pytest.mark.parametrize(
-    "field,value", [("latitude", math.nan), ("latitude", 91.0), ("longitude", -181.0)]
-)
-def test_invalid_gps_coordinates_invalidate_previous_fix(node, field, value):
-    connect_with_telemetry(node)
-    msg = gps_fix()
-    setattr(msg, field, value)
-
-    node.gps_callback(msg)
-
-    assert not node._telemetry_ready()
-
-
-def test_no_gps_fix_invalidates_previous_fix(node):
-    connect_with_telemetry(node)
-    msg = gps_fix()
-    msg.status.status = NavSatStatus.STATUS_NO_FIX
-
-    node.gps_callback(msg)
-
-    assert not node._telemetry_ready()
-
-
-@pytest.mark.parametrize("altitude", [math.nan, math.inf, -math.inf, 1e100, -1e100])
-def test_invalid_relative_altitude_invalidates_previous_sample(node, altitude):
-    connect_with_telemetry(node)
-
-    node.relative_altitude_callback(Float64(data=altitude))
-
-    assert not node._telemetry_ready()
-
-
-@pytest.mark.parametrize(
-    "field,value",
-    [
-        ("altitude", math.nan),
-        ("altitude", math.inf),
-        ("altitude", 1e100),
-        ("altitude", -1e100),
-        ("latitude", 91.0),
-        ("longitude", -181.0),
-    ],
-)
-def test_invalid_goal_is_not_published(node, field, value):
-    connect_with_telemetry(node)
-    node.new_position_callback(position_goal())
-    goal = position_goal()
-    setattr(goal, field, value)
-
-    node.new_position_callback(goal)
-    node.publish_setpoint()
-
+def test_failed_lookup_logs_and_can_retry_without_affecting_received_position(
+    node, geoid_run, failure
+):
+    node.gps_callback(gps_fix())
+    geoid_run.side_effect = failure
+    node.new_position_callback(goal())
     assert node.latest_setpoint is None
+    assert node.home_altitude_amsl is None
+    assert "geographiclib-tools" in node.get_logger().error.call_args.args[0]
+    node.gps_callback(gps_fix(altitude=535.0))
+    assert node.gps_pub.publish.call_args.args[0].altitude == pytest.approx(5.0)
+    geoid_run.side_effect = None
+    node.new_position_callback(goal())
+    assert node.latest_setpoint.pose.position.altitude == pytest.approx(520.0)
+
+
+def test_missing_geoid_dataset_logs_tool_error_and_install_command(node, geoid_run):
+    node.gps_callback(gps_fix())
+    details = "File /usr/share/GeographicLib/geoids/egm96-5.pgm not readable"
+    geoid_run.side_effect = subprocess.CalledProcessError(
+        1, ["GeoidEval", "-n", "egm96-5"], stderr=details
+    )
+
+    node.new_position_callback(goal())
+    node.publish_setpoint()
+
+    log = node.get_logger().error.call_args
+    assert details in log.args[0]
+    assert "sudo geographiclib-get-geoids egm96-5" in log.args[0]
+    assert "Position command not sent" in log.args[0]
+    assert log.kwargs["throttle_duration_sec"] == 5.0
     node.setpoint_pub.publish.assert_not_called()
 
 
-@pytest.mark.parametrize(
-    "timestamp_field",
-    ["gps_received_at", "relative_altitude_received_at", "imu_received_at"],
-)
-def test_sensor_timeout_clears_held_goal_and_prevents_replay(node, timestamp_field):
-    connect_with_telemetry(node)
-    node.new_position_callback(position_goal())
-    setattr(node, timestamp_field, 97.9)
-
-    node.publish_setpoint()
+@pytest.mark.parametrize("output", ["nan", "inf", "bad data", ""])
+def test_invalid_geoid_output_is_not_cached_or_sent(node, geoid_run, output):
+    node.gps_callback(gps_fix())
+    geoid_run.return_value.stdout = output
+    node.new_position_callback(goal())
+    assert node.home_altitude_amsl is None
     assert node.latest_setpoint is None
-    node.setpoint_pub.publish.assert_not_called()
-
-    connect_with_telemetry(node)
-    node.publish_setpoint()
-    node.setpoint_pub.publish.assert_not_called()
 
 
-def test_expired_goal_is_cleared_even_when_telemetry_remains_fresh(node, monkeypatch):
-    connect_with_telemetry(node)
-    node.new_position_callback(position_goal())
-    monkeypatch.setattr(converter.time, "monotonic", lambda: 105.1)
-    connect_with_telemetry(node)
-
-    node.publish_setpoint()
-
-    assert node.latest_setpoint is None
-    node.setpoint_pub.publish.assert_not_called()
-
-
-def test_held_goal_preserves_requested_heading_as_imu_changes(node):
-    connect_with_telemetry(node, yaw=0.25)
-    node.new_position_callback(position_goal())
-    node.imu_callback(imu_attitude(yaw=1.25))
-
-    node.publish_setpoint()
-
-    assert node.current_yaw == pytest.approx(1.25)
-    assert node.setpoint_pub.publish.call_args.args[0].yaw == pytest.approx(0.25)
-
-
-def test_disconnect_requires_new_sensor_samples_and_never_replays_old_goal(node):
-    connect_with_telemetry(node, yaw=0.5)
-    node.new_position_callback(position_goal())
-
-    node.state_callback(State(connected=False, mode=""))
-    node.publish_drone_position()
-    node.publish_setpoint()
-    assert node.latest_setpoint is None
-    assert node.current_yaw is None
-    node.gps_pub.publish.assert_not_called()
-    node.setpoint_pub.publish.assert_not_called()
-
-    node.state_callback(State(connected=True, mode="GUIDED"))
-    assert not node._telemetry_ready()
-    connect_with_telemetry(node)
-    node.publish_setpoint()
-    node.setpoint_pub.publish.assert_not_called()
-
-
-def test_takeoff_does_not_change_mode_or_arm_before_telemetry_is_ready(node):
-    node.set_mode_callback = Mock()
-    node.arm = Mock()
+def test_separately_added_loiter_mode_guard_is_preserved(node):
+    node.state_callback(State(mode="LOITER"))
     node.create_client = Mock()
-    node.call_service = Mock()
-
-    node.takeoff(30.0)
-
-    node.set_mode_callback.assert_not_called()
-    node.arm.assert_not_called()
+    node.set_mode_callback(Mode(mode=4))
     node.create_client.assert_not_called()
-    node.call_service.assert_not_called()
+    node.get_logger().warn.assert_called_once_with("Cannot switch out of LOITER")

@@ -2,5 +2,5 @@
 
 float64 latitude
 float64 longitude
-# Metres; hardware converter expects altitude above the flight controller's home.
+# Metres above the first GPS altitude recorded by the hardware converter.
 float64 altitude

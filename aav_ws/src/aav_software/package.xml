@@ -16,6 +16,7 @@
   <depend>yolo_msgs</depend>
   <depend>geographic_msgs</depend>
   <depend>geometry_msgs</depend>
+  <exec_depend>geographiclib-tools</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_pep257</test_depend>
