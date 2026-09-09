@@ -70,7 +70,7 @@ class ObjectAlignmentController(Node):
     STARTUP_DELAY = Duration(seconds=45)
     SEEK_ALIGNMENT_DURATION = Duration(seconds=30)
     DESCENT_ALIGNMENT_DURATION = Duration(seconds=12)
-    STATUS_LOG_THROTTLE = Duration(seconds=5)
+    STATUS_LOG_THROTTLE = Duration(seconds=3)
 
     LANDING_THRESHOLD_ALTITUDE: float = 0.5
     TAKEOFF_THRESHOLD_ALTITUDE: float = 3.0
@@ -211,7 +211,10 @@ class ObjectAlignmentController(Node):
 
             self.seen_target = True
 
-            if self.current_mission == Mission.GCP_MARKER_ALIGNING_CUASC.value:
+            if (
+                self.current_mission == Mission.GCP_MARKER_ALIGNING_CUASC.value
+                or target_position.object_label.lower() == "bullseye"
+            ):
                 drone_lat = float(self.current_gps_position.latitude)
                 drone_lon = float(self.current_gps_position.longitude)
                 target_lat = target_position.latitude
@@ -224,8 +227,8 @@ class ObjectAlignmentController(Node):
 
                 self._log_throttled(
                     "info",
-                    "gcp_target_alignment",
-                    f"GCP Target: lat={target_lat}, lon={target_lon} | "
+                    "target_alignment",
+                    f"Target ({target_position.object_label}): lat={target_lat}, lon={target_lon} | "
                     f"Drone: lat={drone_lat}, lon={drone_lon}, alt={new_position.altitude}m | "
                     f"Distance: {distance_m:.2f}m | Sending alignment command",
                 )
