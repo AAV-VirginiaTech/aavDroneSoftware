@@ -397,8 +397,8 @@ class TopicConverter(Node):
 
     def set_mode_callback(self, msg: Mode):
 
-        if self.current_mode == "POSHOLD":
-            self.get_logger().warn("Cannot switch out of POSHOLD")
+        if self.current_mode == "LOITER":
+            self.get_logger().warn("Cannot switch out of LOITER")
             return
 
         if msg.mode == ArduPilotMode.TAKEOFF.value:

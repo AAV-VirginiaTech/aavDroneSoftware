@@ -162,6 +162,10 @@ class ManavsMagicCode(Node):
         self.craft = Craft()
         self.targ_pos = TargPos()
         self.cam = Cam()
+        self.has_current_position = False
+        self.position_log_timer = self.create_timer(
+            5.0, self.log_current_position
+        )
 
         self.get_logger().info("Manav's Magic Code has been launched.")
 
@@ -178,6 +182,20 @@ class ManavsMagicCode(Node):
         # Your measured yaw values indicate radians already with ENU/ROS-style meaning.
         # So do NOT wrap with math.radians() here.
         self.craft.yaw = float(msg_in.yaw)
+        self.has_current_position = True
+
+    def log_current_position(self):
+        if not self.has_current_position:
+            self.get_logger().warning(
+                "No current drone position received on AAV/current_gps_position."
+            )
+            return
+
+        self.get_logger().info(
+            "Current drone position: "
+            f"lat={self.craft.lat:.7f}, lon={self.craft.lon:.7f}, "
+            f"alt={self.craft.alt:.2f} m, yaw={self.craft.yaw:.4f} rad"
+        )
 
     def update_targ_gps(self, msg_in: DetectionArray):
         detections = list(msg_in.detections)

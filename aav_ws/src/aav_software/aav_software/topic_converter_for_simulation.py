@@ -160,10 +160,10 @@ class TopicConverter(Node):
         return False, last_publish_time
 
     def set_mode_callback(self, msg: Mode):
-        # Prevent mode switching if drone is in position hold mode
-        if self.current_mode == ArduPilotMode.POSHOLD:
+        # Prevent mode switching if drone is in loiter mode
+        if self.current_mode == ArduPilotMode.LOITER:
             self.get_logger().warn(
-                f"Cannot switch modes while in POSHOLD. Current mode: {self.current_mode.name}"
+                f"Cannot switch modes while in LOITER. Current mode: {self.current_mode.name}"
             )
             return
 
