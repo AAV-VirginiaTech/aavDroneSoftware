@@ -2,5 +2,5 @@
 
 float64 latitude
 float64 longitude
-# Metres above the first GPS altitude recorded by the hardware converter.
+# Metres above the lowest GPS altitude observed by the hardware converter.
 float64 altitude

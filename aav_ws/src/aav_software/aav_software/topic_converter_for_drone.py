@@ -90,17 +90,17 @@ class TopicConverter(Node):
         self.get_logger().info("MAVROS Topic Converter (Hardcoded Modes) Started")
         self.check_geoid_eval()
 
-        self.home_altitude = None
-        self.home_latitude = None
-        self.home_longitude = None
-        self.home_altitude_amsl = None
+        self.minimum_altitude = None
+        self.minimum_latitude = None
+        self.minimum_longitude = None
+        self.minimum_altitude_amsl = None
         self.current_latitude = None
         self.current_longitude = None
         self.current_yaw = 0.0
         self.current_mode = None
 
-        self.latest_setpoint = None
-        self.last_setpoint_time = 0.0
+        self.last_setpoint_publish_time = 0.0
+        self.setpoint_rate_limit_interval = 5.0
 
         sensor_qos = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -145,9 +145,6 @@ class TopicConverter(Node):
         self.setpoint_pub = self.create_publisher(
             GeoPoseStamped, "/mavros/setpoint_position/global", 10
         )
-
-        # Continuous setpoint publishing (REQUIRED by MAVROS)
-        self.create_timer(0.2, self.publish_setpoint)
 
     # =========================
     # UTIL FUNCTIONS
@@ -200,26 +197,26 @@ class TopicConverter(Node):
                 f"is {separation:.3f} m"
             )
 
-    def get_home_altitude_amsl(self):
-        """Convert the first GPS altitude once, using its original location."""
-        if self.home_altitude is None:
-            raise ValueError("waiting for the first GPS reading")
-        if self.home_altitude_amsl is None:
+    def get_minimum_altitude_amsl(self):
+        """Convert the running minimum GPS altitude to AMSL."""
+        if self.minimum_altitude is None:
+            raise ValueError("waiting for a GPS reading")
+        if self.minimum_altitude_amsl is None:
             # Incoming GPS is ellipsoid height; setpoint_position/global expects
             # AMSL. EGM96 separation is subtracted, including when it is negative.
             result = subprocess.run(
                 ["GeoidEval", "-n", "egm96-5"],
-                input=f"{self.home_latitude} {self.home_longitude}\n",
+                input=f"{self.minimum_latitude} {self.minimum_longitude}\n",
                 text=True,
                 capture_output=True,
                 check=True,
                 timeout=1.0,
             )
-            home_amsl = self.home_altitude - float(result.stdout.strip())
-            if not math.isfinite(home_amsl):
-                raise ValueError("invalid home AMSL altitude")
-            self.home_altitude_amsl = home_amsl
-        return self.home_altitude_amsl
+            minimum_amsl = self.minimum_altitude - float(result.stdout.strip())
+            if not math.isfinite(minimum_amsl):
+                raise ValueError("invalid minimum AMSL altitude")
+            self.minimum_altitude_amsl = minimum_amsl
+        return self.minimum_altitude_amsl
 
     def call_service(self, client, req, name):
         if not client.wait_for_service(timeout_sec=5.0):
@@ -246,12 +243,17 @@ class TopicConverter(Node):
         self.current_yaw = self.quaternion_to_yaw(msg.pose.orientation)
 
     def gps_callback(self, msg: NavSatFix):
-        if self.home_altitude is None:
-            # Store the first GPS altitude as the local origin reference.
-            # /mavros/global_position/global reports GPS altitude as ellipsoid height.
-            self.home_altitude = msg.altitude
-            self.home_latitude = msg.latitude
-            self.home_longitude = msg.longitude
+        # Match the simulation: keep the lowest observed filtered altitude as
+        # the relative-altitude origin. MAVROS reports this altitude as ellipsoid
+        # height, so invalidate the AMSL conversion whenever the minimum changes.
+        if (
+            self.minimum_altitude is None
+            or msg.altitude < self.minimum_altitude
+        ):
+            self.minimum_altitude = msg.altitude
+            self.minimum_latitude = msg.latitude
+            self.minimum_longitude = msg.longitude
+            self.minimum_altitude_amsl = None
 
         self.current_latitude = msg.latitude
         self.current_longitude = msg.longitude
@@ -259,7 +261,7 @@ class TopicConverter(Node):
         gps_msg = DronePosition()
         gps_msg.latitude = msg.latitude
         gps_msg.longitude = msg.longitude
-        gps_msg.altitude = msg.altitude - self.home_altitude
+        gps_msg.altitude = msg.altitude - self.minimum_altitude
         gps_msg.yaw = self.current_yaw
 
         self.gps_pub.publish(gps_msg)
@@ -299,9 +301,9 @@ class TopicConverter(Node):
         pose.pose.position.latitude = msg.latitude
         pose.pose.position.longitude = msg.longitude
 
-        # Keep the first GPS reading as home, correcting only its altitude datum.
+        # Correct the requested relative altitude using the running minimum.
         try:
-            pose.pose.position.altitude = msg.altitude + self.get_home_altitude_amsl()
+            pose.pose.position.altitude = msg.altitude + self.get_minimum_altitude_amsl()
         except FileNotFoundError:
             self.get_logger().error(
                 "GeoidEval executable not found. Install it on the drone with: "
@@ -321,7 +323,7 @@ class TopicConverter(Node):
         except (ValueError, OSError, subprocess.SubprocessError) as exc:
             self.get_logger().error(
                 f"Cannot convert position altitude: {exc}. "
-                "Check the first GPS reading, geographiclib-tools and egm96-5 data.",
+                "Check the GPS reading, geographiclib-tools and egm96-5 data.",
                 throttle_duration_sec=5.0,
             )
             return
@@ -332,18 +334,16 @@ class TopicConverter(Node):
         pose.pose.orientation.z = z
         pose.pose.orientation.w = w
 
-        self.latest_setpoint = pose
-        self.last_setpoint_time = time.time()
-
-    def publish_setpoint(self):
-        if self.latest_setpoint is None:
+        now = time.time()
+        if (
+            now - self.last_setpoint_publish_time
+            < self.setpoint_rate_limit_interval
+        ):
             return
 
-        if time.time() - self.last_setpoint_time > 5:
-            return
-
-        self.latest_setpoint.header.stamp = self.get_clock().now().to_msg()
-        self.setpoint_pub.publish(self.latest_setpoint)
+        pose.header.stamp = self.get_clock().now().to_msg()
+        self.setpoint_pub.publish(pose)
+        self.last_setpoint_publish_time = now
 
     # =========================
     # SERVICES
