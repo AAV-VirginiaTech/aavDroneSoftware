@@ -163,9 +163,7 @@ class ManavsMagicCode(Node):
         self.targ_pos = TargPos()
         self.cam = Cam()
         self.has_current_position = False
-        self.position_log_timer = self.create_timer(
-            5.0, self.log_current_position
-        )
+        self.position_log_timer = self.create_timer(5.0, self.log_current_position)
 
         self.get_logger().info("Manav's Magic Code has been launched.")
 
