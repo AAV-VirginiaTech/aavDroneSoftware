@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 import math
-import subprocess
 import time
 
 import rclpy
 from aav_msgs.msg import DronePosition, Mode, NewDronePosition
-from geographic_msgs.msg import GeoPoseStamped
 from geometry_msgs.msg import PoseStamped
-from mavros_msgs.msg import State
+from mavros_msgs.msg import GlobalPositionTarget, State
 from mavros_msgs.srv import CommandBool, CommandTOL, SetMode
 from rclpy.node import Node
 from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
 from sensor_msgs.msg import NavSatFix
+from std_msgs.msg import Float64
 
 from .topic_converter_for_simulation import ArduPilotMode
 
@@ -85,17 +84,23 @@ STRING_TO_MODE = {
 
 
 class TopicConverter(Node):
+    POSITION_AND_YAW_MASK = (
+        GlobalPositionTarget.IGNORE_VX
+        | GlobalPositionTarget.IGNORE_VY
+        | GlobalPositionTarget.IGNORE_VZ
+        | GlobalPositionTarget.IGNORE_AFX
+        | GlobalPositionTarget.IGNORE_AFY
+        | GlobalPositionTarget.IGNORE_AFZ
+        | GlobalPositionTarget.IGNORE_YAW_RATE
+    )
+
     def __init__(self):
         super().__init__("topic_converter_for_drone")
         self.get_logger().info("MAVROS Topic Converter (Hardcoded Modes) Started")
-        self.check_geoid_eval()
 
-        self.minimum_altitude = None
-        self.minimum_latitude = None
-        self.minimum_longitude = None
-        self.minimum_altitude_amsl = None
         self.current_latitude = None
         self.current_longitude = None
+        self.current_relative_altitude = None
         self.current_yaw = 0.0
         self.current_mode = None
 
@@ -116,6 +121,13 @@ class TopicConverter(Node):
 
         self.create_subscription(
             NavSatFix, "/mavros/global_position/global", self.gps_callback, sensor_qos
+        )
+
+        self.create_subscription(
+            Float64,
+            "/mavros/global_position/rel_alt",
+            self.relative_altitude_callback,
+            sensor_qos,
         )
 
         self.create_subscription(
@@ -143,7 +155,7 @@ class TopicConverter(Node):
         )
 
         self.setpoint_pub = self.create_publisher(
-            GeoPoseStamped, "/mavros/setpoint_position/global", 10
+            GlobalPositionTarget, "/mavros/setpoint_raw/global", 10
         )
 
     # =========================
@@ -152,71 +164,6 @@ class TopicConverter(Node):
 
     def quaternion_to_yaw(self, q):
         return math.atan2(2 * (q.w * q.z + q.x * q.y), 1 - 2 * (q.y**2 + q.z**2))
-
-    def yaw_to_quaternion(self, yaw):
-        return (math.sin(yaw / 2), math.cos(yaw / 2))
-
-    def check_geoid_eval(self):
-        """Check the executable and EGM96 dataset without needing GPS telemetry."""
-        try:
-            result = subprocess.run(
-                ["GeoidEval", "-n", "egm96-5"],
-                input="0 0\n",
-                text=True,
-                capture_output=True,
-                check=True,
-                timeout=1.0,
-            )
-            separation = float(result.stdout.strip())
-            if not math.isfinite(separation):
-                raise ValueError(f"returned nonfinite separation {separation!r}")
-        except FileNotFoundError:
-            self.get_logger().error(
-                "Startup geoid check failed: GeoidEval executable not found. "
-                "Install it with: sudo apt install geographiclib-tools. "
-                "Position commands requiring altitude conversion will be rejected."
-            )
-        except subprocess.CalledProcessError as exc:
-            details = (exc.stderr or exc.stdout or str(exc)).strip()
-            self.get_logger().error(
-                "Startup geoid check failed: GeoidEval could not load egm96-5 "
-                f"({details}). Install the dataset with: "
-                "sudo geographiclib-get-geoids egm96-5. "
-                "Position commands requiring altitude conversion will be rejected."
-            )
-        except (ValueError, OSError, subprocess.SubprocessError) as exc:
-            self.get_logger().error(
-                f"Startup geoid check failed: {exc}. "
-                "Install or repair them with: sudo apt install geographiclib-tools; "
-                "sudo geographiclib-get-geoids egm96-5. "
-                "Position commands requiring altitude conversion will be rejected."
-            )
-        else:
-            self.get_logger().info(
-                f"Startup geoid check passed: egm96-5 separation at (0, 0) "
-                f"is {separation:.3f} m"
-            )
-
-    def get_minimum_altitude_amsl(self):
-        """Convert the running minimum GPS altitude to AMSL."""
-        if self.minimum_altitude is None:
-            raise ValueError("waiting for a GPS reading")
-        if self.minimum_altitude_amsl is None:
-            # Incoming GPS is ellipsoid height; setpoint_position/global expects
-            # AMSL. EGM96 separation is subtracted, including when it is negative.
-            result = subprocess.run(
-                ["GeoidEval", "-n", "egm96-5"],
-                input=f"{self.minimum_latitude} {self.minimum_longitude}\n",
-                text=True,
-                capture_output=True,
-                check=True,
-                timeout=1.0,
-            )
-            minimum_amsl = self.minimum_altitude - float(result.stdout.strip())
-            if not math.isfinite(minimum_amsl):
-                raise ValueError("invalid minimum AMSL altitude")
-            self.minimum_altitude_amsl = minimum_amsl
-        return self.minimum_altitude_amsl
 
     def call_service(self, client, req, name):
         if not client.wait_for_service(timeout_sec=5.0):
@@ -243,25 +190,25 @@ class TopicConverter(Node):
         self.current_yaw = self.quaternion_to_yaw(msg.pose.orientation)
 
     def gps_callback(self, msg: NavSatFix):
-        # Match the simulation: keep the lowest observed filtered altitude as
-        # the relative-altitude origin. MAVROS reports this altitude as ellipsoid
-        # height, so invalidate the AMSL conversion whenever the minimum changes.
-        if (
-            self.minimum_altitude is None
-            or msg.altitude < self.minimum_altitude
-        ):
-            self.minimum_altitude = msg.altitude
-            self.minimum_latitude = msg.latitude
-            self.minimum_longitude = msg.longitude
-            self.minimum_altitude_amsl = None
-
         self.current_latitude = msg.latitude
         self.current_longitude = msg.longitude
+        self.publish_drone_position()
 
+    def relative_altitude_callback(self, msg: Float64):
+        self.current_relative_altitude = msg.data
+        self.publish_drone_position()
+
+    def publish_drone_position(self):
+        if (
+            self.current_latitude is None
+            or self.current_longitude is None
+            or self.current_relative_altitude is None
+        ):
+            return
         gps_msg = DronePosition()
-        gps_msg.latitude = msg.latitude
-        gps_msg.longitude = msg.longitude
-        gps_msg.altitude = msg.altitude - self.minimum_altitude
+        gps_msg.latitude = self.current_latitude
+        gps_msg.longitude = self.current_longitude
+        gps_msg.altitude = self.current_relative_altitude
         gps_msg.yaw = self.current_yaw
 
         self.gps_pub.publish(gps_msg)
@@ -295,44 +242,14 @@ class TopicConverter(Node):
 
     def new_position_callback(self, msg: NewDronePosition):
 
-        pose = GeoPoseStamped()
-        pose.header.frame_id = "map"
-
-        pose.pose.position.latitude = msg.latitude
-        pose.pose.position.longitude = msg.longitude
-
-        # Correct the requested relative altitude using the running minimum.
-        try:
-            pose.pose.position.altitude = msg.altitude + self.get_minimum_altitude_amsl()
-        except FileNotFoundError:
-            self.get_logger().error(
-                "GeoidEval executable not found. Install it on the drone with: "
-                "sudo apt install geographiclib-tools. Position command not sent.",
-                throttle_duration_sec=5.0,
-            )
-            return
-        except subprocess.CalledProcessError as exc:
-            details = (exc.stderr or exc.stdout or str(exc)).strip()
-            self.get_logger().error(
-                f"GeoidEval failed: {details}. "
-                "If the egm96-5.pgm dataset is missing, install it on the drone with: "
-                "sudo geographiclib-get-geoids egm96-5. Position command not sent.",
-                throttle_duration_sec=5.0,
-            )
-            return
-        except (ValueError, OSError, subprocess.SubprocessError) as exc:
-            self.get_logger().error(
-                f"Cannot convert position altitude: {exc}. "
-                "Check the GPS reading, geographiclib-tools and egm96-5 data.",
-                throttle_duration_sec=5.0,
-            )
-            return
-
-        yaw = getattr(msg, "yaw", self.current_yaw)
-        z, w = self.yaw_to_quaternion(yaw)
-
-        pose.pose.orientation.z = z
-        pose.pose.orientation.w = w
+        target = GlobalPositionTarget()
+        target.header.frame_id = "map"
+        target.coordinate_frame = GlobalPositionTarget.FRAME_GLOBAL_REL_ALT
+        target.type_mask = self.POSITION_AND_YAW_MASK
+        target.latitude = msg.latitude
+        target.longitude = msg.longitude
+        target.altitude = msg.altitude
+        target.yaw = self.current_yaw
 
         now = time.time()
         if (
@@ -341,8 +258,8 @@ class TopicConverter(Node):
         ):
             return
 
-        pose.header.stamp = self.get_clock().now().to_msg()
-        self.setpoint_pub.publish(pose)
+        target.header.stamp = self.get_clock().now().to_msg()
+        self.setpoint_pub.publish(target)
         self.last_setpoint_publish_time = now
 
     # =========================

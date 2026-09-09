@@ -2,7 +2,7 @@
 
 float64 latitude
 float64 longitude
-# Metres above the lowest GPS altitude observed by the hardware converter.
+# Metres above the vehicle's altitude reference.
 float32 altitude
 # ROS ENU radians: East = 0, North = +pi/2.
 float32 yaw

@@ -1,7 +1,6 @@
-"""Regression coverage for the original command path with corrected AMSL altitude."""
+"""Regression coverage for the MAVROS relative-altitude command path."""
 
 import math
-import subprocess
 from types import SimpleNamespace
 from typing import Any, cast
 from unittest.mock import Mock
@@ -10,29 +9,19 @@ import pytest
 from aav_msgs.msg import Mode, NewDronePosition
 from aav_software import topic_converter_for_drone as converter
 from builtin_interfaces.msg import Time
-from geographic_msgs.msg import GeoPoseStamped
 from geometry_msgs.msg import PoseStamped
-from mavros_msgs.msg import State
+from mavros_msgs.msg import GlobalPositionTarget, State
 from rclpy.qos import ReliabilityPolicy
 from sensor_msgs.msg import NavSatFix
+from std_msgs.msg import Float64
 
 
 @pytest.fixture
-def geoid_run(monkeypatch):
-    run = Mock(return_value=subprocess.CompletedProcess([], 0, stdout="30.0\n"))
-    monkeypatch.setattr(converter.subprocess, "run", run)
-    return run
-
-
-@pytest.fixture
-def node(monkeypatch, geoid_run):
+def node(monkeypatch):
     instance = cast(Any, converter.TopicConverter.__new__(converter.TopicConverter))
-    instance.minimum_altitude = None
-    instance.minimum_latitude = None
-    instance.minimum_longitude = None
-    instance.minimum_altitude_amsl = None
     instance.current_latitude = None
     instance.current_longitude = None
+    instance.current_relative_altitude = None
     instance.current_yaw = 0.0
     instance.current_mode = None
     instance.last_setpoint_publish_time = 0.0
@@ -50,7 +39,7 @@ def node(monkeypatch, geoid_run):
     return instance
 
 
-def gps_fix(altitude=530.0, latitude=37.2296, longitude=-80.4139):
+def gps_fix(latitude=37.2296, longitude=-80.4139, altitude=530.0):
     return NavSatFix(latitude=latitude, longitude=longitude, altitude=altitude)
 
 
@@ -65,14 +54,9 @@ def pose(yaw):
     return msg
 
 
-def test_original_topics_and_qos_are_restored(monkeypatch):
+def test_mavros_topics_qos_and_raw_setpoint_publisher(monkeypatch):
     monkeypatch.setattr(converter.Node, "__init__", lambda self, name: None)
     monkeypatch.setattr(converter.Node, "get_logger", Mock(return_value=Mock()))
-    monkeypatch.setattr(
-        converter.subprocess,
-        "run",
-        Mock(return_value=subprocess.CompletedProcess([], 0, stdout="-30.0\n")),
-    )
     subscriptions, publishers, timers = Mock(), Mock(), Mock()
     monkeypatch.setattr(converter.Node, "create_subscription", subscriptions)
     monkeypatch.setattr(converter.Node, "create_publisher", publishers)
@@ -84,237 +68,88 @@ def test_original_topics_and_qos_are_restored(monkeypatch):
     assert set(by_topic) == {
         "/mavros/state",
         "/mavros/global_position/global",
+        "/mavros/global_position/rel_alt",
         "/mavros/local_position/pose",
         "/AAV/set_mode",
         "/AAV/send_new_position",
     }
-    for topic in ("/mavros/global_position/global", "/mavros/local_position/pose"):
+    for topic in (
+        "/mavros/global_position/global",
+        "/mavros/global_position/rel_alt",
+        "/mavros/local_position/pose",
+    ):
         assert by_topic[topic][3].reliability == ReliabilityPolicy.BEST_EFFORT
         assert by_topic[topic][3].depth == 10
-    publishers.assert_any_call(GeoPoseStamped, "/mavros/setpoint_position/global", 10)
+    publishers.assert_any_call(GlobalPositionTarget, "/mavros/setpoint_raw/global", 10)
     timers.assert_not_called()
 
 
-def test_startup_geoid_check_logs_success(node, geoid_run):
-    node.check_geoid_eval()
-    geoid_run.assert_called_with(
-        ["GeoidEval", "-n", "egm96-5"],
-        input="0 0\n",
-        text=True,
-        capture_output=True,
-        check=True,
-        timeout=1.0,
-    )
-    assert "Startup geoid check passed" in node.get_logger().info.call_args.args[0]
-
-
-@pytest.mark.parametrize(
-    "failure,expected",
-    [
-        (FileNotFoundError(), "GeoidEval executable not found"),
-        (
-            subprocess.CalledProcessError(1, "GeoidEval", stderr="egm96-5.pgm missing"),
-            "could not load egm96-5",
-        ),
-    ],
-)
-def test_startup_geoid_check_logs_actionable_failure(
-    node, geoid_run, failure, expected
-):
-    geoid_run.side_effect = failure
-
-    node.check_geoid_eval()
-
-    assert expected in node.get_logger().error.call_args.args[0]
-    assert (
-        "Position commands requiring altitude conversion will be rejected"
-        in (node.get_logger().error.call_args.args[0])
-    )
-
-
-def test_receiving_position_uses_first_fix_and_local_pose_without_geoid_lookup(
-    node, geoid_run
-):
+def test_current_position_uses_mavros_relative_altitude(node):
     node.pose_callback(pose(0.5))
     node.gps_callback(gps_fix())
-    assert node.gps_pub.publish.call_args.args[0].altitude == 0.0
+    node.gps_pub.publish.assert_not_called()
 
-    node.gps_callback(gps_fix(altitude=550.0))
-
+    node.relative_altitude_callback(Float64(data=12.5))
     position = node.gps_pub.publish.call_args.args[0]
     assert position.latitude == pytest.approx(37.2296)
     assert position.longitude == pytest.approx(-80.4139)
-    assert position.altitude == pytest.approx(20.0)
+    assert position.altitude == pytest.approx(12.5)
     assert position.yaw == pytest.approx(0.5)
-    assert node.minimum_altitude == 530.0
-    geoid_run.assert_not_called()
+
+    node.relative_altitude_callback(Float64(data=14.0))
+    assert node.gps_pub.publish.call_args.args[0].altitude == pytest.approx(14.0)
 
 
-@pytest.mark.parametrize("geoid_height", [-30.0, 0.0, 30.0])
-def test_global_target_corrects_ellipsoid_to_amsl_with_signed_geoid_height(
-    node, geoid_run, geoid_height
+def test_position_command_uses_relative_altitude_frame_and_direct_target_altitude(
+    node,
 ):
-    geoid_run.return_value.stdout = str(geoid_height)
-    node.gps_callback(gps_fix())
     node.pose_callback(pose(math.pi / 2))
+    node.new_position_callback(goal(altitude=20.0))
 
-    node.new_position_callback(goal())
     target = node.setpoint_pub.publish.call_args.args[0]
-    assert isinstance(target, GeoPoseStamped)
+    assert isinstance(target, GlobalPositionTarget)
     assert target.header.frame_id == "map"
     assert target.header.stamp.sec == 123
-    assert target.pose.position.latitude == pytest.approx(37.2297)
-    assert target.pose.position.longitude == pytest.approx(-80.4138)
-    assert target.pose.position.altitude == pytest.approx(550.0 - geoid_height)
-    assert target.pose.orientation.z == pytest.approx(math.sin(math.pi / 4))
-    assert target.pose.orientation.w == pytest.approx(math.cos(math.pi / 4))
-
-
-def test_minimum_lookup_uses_lowest_location_before_first_goal(
-    node, geoid_run
-):
-    node.gps_callback(gps_fix())
-    node.gps_callback(gps_fix(altitude=520.0, latitude=38.0, longitude=-81.0))
-    node.new_position_callback(goal())
-    target = node.setpoint_pub.publish.call_args.args[0]
-    assert target.pose.position.altitude == pytest.approx(490.0)
-    geoid_run.assert_called_once_with(
-        ["GeoidEval", "-n", "egm96-5"],
-        input="38.0 -81.0\n",
-        text=True,
-        capture_output=True,
-        check=True,
-        timeout=1.0,
-    )
-
-
-def test_later_lower_altitude_resets_relative_origin_and_amsl_cache(
-    node, geoid_run, monkeypatch
-):
-    node.gps_callback(gps_fix(altitude=530.0))
-    node.new_position_callback(goal())
-    first_target = node.setpoint_pub.publish.call_args.args[0]
-    assert first_target.pose.position.altitude == pytest.approx(500.0)
-
-    node.gps_callback(gps_fix(altitude=520.0, latitude=38.0, longitude=-81.0))
-    assert node.gps_pub.publish.call_args.args[0].altitude == pytest.approx(0.0)
-
-    monkeypatch.setattr(converter.time, "time", lambda: 106.0)
-    node.new_position_callback(goal(altitude=10.0))
-    second_target = node.setpoint_pub.publish.call_args.args[0]
-    assert second_target.pose.position.altitude == pytest.approx(500.0)
-    assert geoid_run.call_count == 2
-
-
-def test_successful_conversion_is_cached_across_rate_limited_goals(node, geoid_run, monkeypatch):
-    node.gps_callback(gps_fix())
-    node.new_position_callback(goal())
-    assert node.setpoint_pub.publish.call_count == 1
-    monkeypatch.setattr(converter.time, "time", lambda: 106.0)
-    node.gps_callback(gps_fix(altitude=570.0))
-    node.new_position_callback(goal(altitude=10.0))
-
-    target = node.setpoint_pub.publish.call_args.args[0]
-    assert target.pose.position.altitude == pytest.approx(510.0)
-    geoid_run.assert_called_once()
-
-
-def test_zero_startup_altitude_is_kept_as_reference(node):
-    node.gps_callback(gps_fix(altitude=0.0))
-    node.gps_callback(gps_fix(altitude=15.0))
-    node.new_position_callback(goal())
-    assert node.minimum_altitude == 0.0
-    assert node.gps_pub.publish.call_args.args[0].altitude == pytest.approx(15.0)
-    target = node.setpoint_pub.publish.call_args.args[0]
-    assert target.pose.position.altitude == pytest.approx(-10.0)
-
-
-def test_command_needs_no_imu_connection_or_freshness_gate(node, monkeypatch):
-    node.gps_callback(gps_fix())
-    monkeypatch.setattr(converter.time, "time", lambda: 1000.0)
-    node.new_position_callback(goal())
-    target = node.setpoint_pub.publish.call_args.args[0]
-    assert target.pose.orientation.z == 0.0
-    assert target.pose.orientation.w == 1.0
-    node.setpoint_pub.publish.assert_called_once()
-
-
-def test_heading_is_captured_when_goal_arrives(node):
-    node.gps_callback(gps_fix())
-    node.pose_callback(pose(0.5))
-    node.new_position_callback(goal())
-    node.pose_callback(pose(1.0))
-    target = node.setpoint_pub.publish.call_args.args[0]
-    assert target.pose.orientation.z == pytest.approx(math.sin(0.25))
+    assert target.coordinate_frame == GlobalPositionTarget.FRAME_GLOBAL_REL_ALT
+    assert target.type_mask == node.POSITION_AND_YAW_MASK
+    assert target.latitude == pytest.approx(37.2297)
+    assert target.longitude == pytest.approx(-80.4138)
+    assert target.altitude == pytest.approx(20.0)
+    assert target.yaw == pytest.approx(math.pi / 2)
 
 
 def test_position_commands_are_rate_limited_to_five_seconds(node, monkeypatch):
-    node.gps_callback(gps_fix())
     node.new_position_callback(goal())
+    node.setpoint_pub.publish.assert_called_once()
+
+    monkeypatch.setattr(converter.time, "time", lambda: 104.9)
+    node.new_position_callback(goal(altitude=10.0))
+    node.setpoint_pub.publish.assert_called_once()
+
     monkeypatch.setattr(converter.time, "time", lambda: 105.0)
-    node.new_position_callback(goal(altitude=10.0))
-    node.setpoint_pub.publish.assert_called_once()
-    monkeypatch.setattr(converter.time, "time", lambda: 105.1)
-    node.new_position_callback(goal(altitude=10.0))
-    node.setpoint_pub.publish.assert_called_once()
-    monkeypatch.setattr(converter.time, "time", lambda: 110.1)
     node.new_position_callback(goal(altitude=10.0))
     assert node.setpoint_pub.publish.call_count == 2
 
 
-def test_goal_before_first_gps_does_not_guess_absolute_altitude(node, geoid_run):
+def test_position_command_does_not_require_current_telemetry(node):
     node.new_position_callback(goal())
-    node.setpoint_pub.publish.assert_not_called()
-    geoid_run.assert_not_called()
-    assert "GPS reading" in node.get_logger().error.call_args.args[0]
+    node.setpoint_pub.publish.assert_called_once()
 
 
-@pytest.mark.parametrize(
-    "failure", [FileNotFoundError(), subprocess.TimeoutExpired("GeoidEval", 1.0)]
-)
-def test_failed_lookup_logs_and_can_retry_without_affecting_received_position(
-    node, geoid_run, failure
-):
-    node.gps_callback(gps_fix())
-    geoid_run.side_effect = failure
-    node.new_position_callback(goal())
-    assert node.minimum_altitude_amsl is None
-    assert "geographiclib-tools" in node.get_logger().error.call_args.args[0]
-    node.gps_callback(gps_fix(altitude=535.0))
-    assert node.gps_pub.publish.call_args.args[0].altitude == pytest.approx(5.0)
-    geoid_run.side_effect = None
+def test_yaw_is_captured_when_goal_arrives(node):
+    node.pose_callback(pose(0.5))
     node.new_position_callback(goal())
     target = node.setpoint_pub.publish.call_args.args[0]
-    assert target.pose.position.altitude == pytest.approx(520.0)
+    assert target.yaw == pytest.approx(0.5)
 
 
-def test_missing_geoid_dataset_logs_tool_error_and_install_command(node, geoid_run):
-    node.gps_callback(gps_fix())
-    details = "File /usr/share/GeographicLib/geoids/egm96-5.pgm not readable"
-    geoid_run.side_effect = subprocess.CalledProcessError(
-        1, ["GeoidEval", "-n", "egm96-5"], stderr=details
-    )
-
-    node.new_position_callback(goal())
-
-    log = node.get_logger().error.call_args
-    assert details in log.args[0]
-    assert "sudo geographiclib-get-geoids egm96-5" in log.args[0]
-    assert "Position command not sent" in log.args[0]
-    assert log.kwargs["throttle_duration_sec"] == 5.0
-    node.setpoint_pub.publish.assert_not_called()
+def test_state_mode_is_forwarded(node):
+    node.state_callback(State(mode="GUIDED"))
+    node.mode_pub.publish.assert_called_once()
+    assert node.mode_pub.publish.call_args.args[0].mode == 4
 
 
-@pytest.mark.parametrize("output", ["nan", "inf", "bad data", ""])
-def test_invalid_geoid_output_is_not_cached_or_sent(node, geoid_run, output):
-    node.gps_callback(gps_fix())
-    geoid_run.return_value.stdout = output
-    node.new_position_callback(goal())
-    assert node.minimum_altitude_amsl is None
-    node.setpoint_pub.publish.assert_not_called()
-
-
-def test_separately_added_loiter_mode_guard_is_preserved(node):
+def test_loiter_mode_guard_is_preserved(node):
     node.state_callback(State(mode="LOITER"))
     node.create_client = Mock()
     node.set_mode_callback(Mode(mode=4))
