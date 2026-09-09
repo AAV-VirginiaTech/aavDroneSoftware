@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from enum import Enum
-from typing import Optional, cast
+from typing import cast
 
 import rclpy
 from aav_msgs.msg import DronePosition, Mode, NewDronePosition, TargetPosition
@@ -100,9 +100,9 @@ class ObjectAlignmentController(Node):
 
         self.current_mode = ArduPilotMode.AUTO
         self.guided_mode_request_in_flight = False
-        self.current_gps_position: Optional[DronePosition] = None
+        self.current_gps_position: DronePosition | None = None
 
-        self.last_target_label: Optional[str] = None
+        self.last_target_label: str | None = None
         self.seen_target: bool = False
 
         ### ROS2 PARAMETERS
@@ -132,7 +132,7 @@ class ObjectAlignmentController(Node):
 
         self.state = OacState.SEEKING
         self.time_marker = self.get_clock().now()
-        self.startup_time: Optional[Time] = None
+        self.startup_time: Time | None = None
         self.startup_delay_ended = False
         self._last_log_time_ns: dict[str, int] = {}
 
