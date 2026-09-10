@@ -111,11 +111,10 @@ def test_position_command_uses_relative_altitude_frame_and_direct_target_altitud
     assert target.header.frame_id == "map"
     assert target.header.stamp.sec == 123
     assert target.coordinate_frame == GlobalPositionTarget.FRAME_GLOBAL_REL_ALT
-    assert target.type_mask == node.POSITION_AND_YAW_MASK
+    assert target.type_mask == 3576  # Ignore velocity, acceleration, yaw, and yaw rate.
     assert target.latitude == pytest.approx(37.2297)
     assert target.longitude == pytest.approx(-80.4138)
     assert target.altitude == pytest.approx(20.0)
-    assert target.yaw == pytest.approx(math.pi / 2)
 
 
 def test_position_commands_are_rate_limited_to_five_seconds(node, monkeypatch):
@@ -136,11 +135,14 @@ def test_position_command_does_not_require_current_telemetry(node):
     node.setpoint_pub.publish.assert_called_once()
 
 
-def test_yaw_is_captured_when_goal_arrives(node):
-    node.pose_callback(pose(0.5))
+@pytest.mark.parametrize("yaw", [0.5, -1.0, math.pi / 2])
+def test_position_command_ignores_yaw(node, yaw):
+    node.pose_callback(pose(yaw))
     node.new_position_callback(goal())
     target = node.setpoint_pub.publish.call_args.args[0]
-    assert target.yaw == pytest.approx(0.5)
+    assert target.type_mask & GlobalPositionTarget.IGNORE_YAW
+    assert target.type_mask & GlobalPositionTarget.IGNORE_YAW_RATE
+    assert target.yaw == 0.0
 
 
 def test_state_mode_is_forwarded(node):

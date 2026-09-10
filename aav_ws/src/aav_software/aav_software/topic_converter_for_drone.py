@@ -84,13 +84,14 @@ STRING_TO_MODE = {
 
 
 class TopicConverter(Node):
-    POSITION_AND_YAW_MASK = (
+    POSITION_ONLY_MASK = (
         GlobalPositionTarget.IGNORE_VX
         | GlobalPositionTarget.IGNORE_VY
         | GlobalPositionTarget.IGNORE_VZ
         | GlobalPositionTarget.IGNORE_AFX
         | GlobalPositionTarget.IGNORE_AFY
         | GlobalPositionTarget.IGNORE_AFZ
+        | GlobalPositionTarget.IGNORE_YAW
         | GlobalPositionTarget.IGNORE_YAW_RATE
     )
 
@@ -245,11 +246,10 @@ class TopicConverter(Node):
         target = GlobalPositionTarget()
         target.header.frame_id = "map"
         target.coordinate_frame = GlobalPositionTarget.FRAME_GLOBAL_REL_ALT
-        target.type_mask = self.POSITION_AND_YAW_MASK
+        target.type_mask = self.POSITION_ONLY_MASK
         target.latitude = msg.latitude
         target.longitude = msg.longitude
         target.altitude = msg.altitude
-        target.yaw = self.current_yaw
 
         now = time.time()
         if (
