@@ -130,8 +130,8 @@ def generate_launch_description():
         package="aav_software",
         executable="object_alignment_controller",
         parameters=[
-            {"current_mission": Mission.GCP_MARKER_ALIGNING_CUASC.value},
-            {"descent_alignment_altitude": 5.0},
+            {"current_mission": Mission.PACKAGE_DELIVERY_CUASC.value},
+            {"descent_alignment_altitude": 9.0},
             {"hardcoded_drop_altitude": 3.0},
             {"substructure_action_duration": 5},
         ],
