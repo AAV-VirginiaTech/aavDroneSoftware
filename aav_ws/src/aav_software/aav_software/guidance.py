@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from enum import Enum
-from typing import Optional, cast
+from typing import cast
 
 import rclpy
 from aav_msgs.msg import DronePosition, Mode, NewDronePosition, TargetPosition
@@ -73,8 +73,8 @@ class OacState(Enum):
 class Guidance(Node):
     STARTUP_DELAY = Duration(seconds=45)
     SEEK_ALIGNMENT_DURATION = Duration(seconds=30)
-    DESCENT_ALIGNMENT_DURATION = Duration(seconds=12)
-    STATUS_LOG_THROTTLE = Duration(seconds=5)
+    DESCENT_ALIGNMENT_DURATION = Duration(seconds=20)
+    STATUS_LOG_THROTTLE = Duration(seconds=3)
 
     LANDING_THRESHOLD_ALTITUDE: float = 0.5
     TAKEOFF_THRESHOLD_ALTITUDE: float = 3.0
@@ -104,9 +104,9 @@ class Guidance(Node):
 
         self.current_mode = ArduPilotMode.AUTO
         self.guided_mode_request_in_flight = False
-        self.current_gps_position: Optional[DronePosition] = None
+        self.current_gps_position: DronePosition | None = None
 
-        self.last_target_label: Optional[str] = None
+        self.last_target_label: str | None = None
         self.seen_target: bool = False
 
         ### ROS2 PARAMETERS
@@ -136,7 +136,7 @@ class Guidance(Node):
 
         self.state = OacState.SEEKING
         self.time_marker = self.get_clock().now()
-        self.startup_time: Optional[Time] = None
+        self.startup_time: Time | None = None
         self.startup_delay_ended = False
         self._last_log_time_ns: dict[str, int] = {}
 
@@ -215,7 +215,10 @@ class Guidance(Node):
 
             self.seen_target = True
 
-            if self.current_mission == Mission.GCP_MARKER_ALIGNING_CUASC.value:
+            if (
+                self.current_mission == Mission.GCP_MARKER_ALIGNING_CUASC.value
+                or target_position.object_label.lower() == "bullseye"
+            ):
                 drone_lat = float(self.current_gps_position.latitude)
                 drone_lon = float(self.current_gps_position.longitude)
                 target_lat = target_position.latitude
@@ -228,8 +231,8 @@ class Guidance(Node):
 
                 self._log_throttled(
                     "info",
-                    "gcp_target_alignment",
-                    f"GCP Target: lat={target_lat}, lon={target_lon} | "
+                    "target_alignment",
+                    f"Target ({target_position.object_label}): lat={target_lat}, lon={target_lon} | "
                     f"Drone: lat={drone_lat}, lon={drone_lon}, alt={new_position.altitude}m | "
                     f"Distance: {distance_m:.2f}m | Sending alignment command",
                 )

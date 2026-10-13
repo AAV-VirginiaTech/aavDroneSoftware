@@ -37,7 +37,7 @@ def generate_launch_description():
         executable="guidance",
         parameters=[
             {"current_mission": Mission.PACKAGE_DELIVERY_CUASC.value},
-            {"descent_alignment_altitude": 5.0},
+            {"descent_alignment_altitude": 10.0},
         ],
     )
 

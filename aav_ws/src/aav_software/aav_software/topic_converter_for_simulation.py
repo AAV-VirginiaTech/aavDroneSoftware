@@ -160,10 +160,10 @@ class TopicConverter(Node):
         return False, last_publish_time
 
     def set_mode_callback(self, msg: Mode):
-        # Prevent mode switching if drone is in position hold mode
-        if self.current_mode == ArduPilotMode.POSHOLD:
+        # Prevent mode switching if drone is in loiter mode
+        if self.current_mode == ArduPilotMode.LOITER:
             self.get_logger().warn(
-                f"Cannot switch modes while in POSHOLD. Current mode: {self.current_mode.name}"
+                f"Cannot switch modes while in LOITER. Current mode: {self.current_mode.name}"
             )
             return
 
@@ -192,9 +192,11 @@ class TopicConverter(Node):
 
     def global_position_callback(self, msg: GeoPoseStamped):
 
-        if (self.minimum_altitude is None) or (self.minimum_altitude == 0.0):
-            self.minimum_altitude = msg.pose.position.altitude
-        elif msg.pose.position.altitude < self.minimum_altitude:
+        if (
+            (self.minimum_altitude is None)
+            or (self.minimum_altitude == 0.0)
+            or msg.pose.position.altitude < self.minimum_altitude
+        ):
             self.minimum_altitude = msg.pose.position.altitude
 
         gps_msg = DronePosition()
@@ -228,7 +230,6 @@ class TopicConverter(Node):
         )
         if should_publish:
             self.new_gps_publisher.publish(new_gps_msg)
-            
 
     def call_mode_switch(self, mode: int = 4) -> bool:
         try:
