@@ -1,18 +1,15 @@
 from __future__ import annotations
 
-from rclpy.node import Node
-
-from .timer import Timer
-
 
 class StateMachine:
-    class State(Node):
-        def __init__(self, name):
-            self.name = name
-            self.timer = Timer(self.get_clock())
+    class State:
+        def __init__(self, name: str):
+            self.name: str = name
+            self.finished: bool = False
+            self.next_state: StateMachine.State | None = None
 
-        def get_timer(self) -> Timer:
-            return self.timer
+        def get_name(self) -> str:
+            return self.name
 
         def enter(self):
             pass
@@ -20,8 +17,38 @@ class StateMachine:
         def update(self):
             pass
 
-        def exit(self) -> StateMachine.State | None:
+        def exit(self):
             pass
 
+        def mark_finished(self, next_state: StateMachine.State | None = None):
+            self.finished = True
+            self.next_state = next_state
+
+        def is_finished(self) -> bool:
+            return self.finished
+
+        def get_next_state(self) -> StateMachine.State | None:
+            return self.next_state
+
     def __init__(self):
-        self.state: StateMachine.State | None = None
+        self.current_state: StateMachine.State | None = None
+
+    def start(self, initial_state: StateMachine.State):
+        self.current_state = initial_state
+        self.current_state.enter()
+
+    def update(self):
+        if self.current_state is None:
+            return
+
+        self.current_state.update()
+        if not self.current_state.is_finished():
+            return
+
+        # cleanup (if necessary)
+        self.current_state.exit()
+
+        # set current state to next state
+        self.current_state = self.current_state.get_next_state()
+        if self.current_state is not None:
+            self.current_state.enter()

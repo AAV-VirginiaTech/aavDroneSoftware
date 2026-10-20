@@ -169,10 +169,7 @@ class Guidance(Node):
         # Don't process targets until the drone has taken off and the startup delay has elapsed
         if self.startup_time is None or (
             self.startup_time is not None
-            and (
-                self.get_clock().now() - self.startup_time
-                < Guidance.STARTUP_DELAY
-            )
+            and (self.get_clock().now() - self.startup_time < Guidance.STARTUP_DELAY)
         ):
             return
 
@@ -252,9 +249,7 @@ class Guidance(Node):
             self.current_mission == Mission.GCP_MARKER_ALIGNING_CUASC.value
             and self.startup_time is not None
         ):
-            if (
-                self.get_clock().now() - self.startup_time
-            ) > Guidance.STARTUP_DELAY:
+            if (self.get_clock().now() - self.startup_time) > Guidance.STARTUP_DELAY:
                 self.get_logger().debug(
                     f"Drone position: lat={gps_position.latitude}, lon={gps_position.longitude}, "
                     f"alt={gps_position.altitude}m, yaw={gps_position.yaw} rad"
@@ -277,8 +272,7 @@ class Guidance(Node):
 
         # Wait for startup delay before processing state transitions
         if self.startup_time is not None and (
-            self.get_clock().now() - self.startup_time
-            < Guidance.STARTUP_DELAY
+            self.get_clock().now() - self.startup_time < Guidance.STARTUP_DELAY
         ):
             if self.current_mission == Mission.GCP_MARKER_ALIGNING_CUASC.value:
                 elapsed = self.get_clock().now() - self.startup_time
