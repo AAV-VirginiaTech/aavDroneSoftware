@@ -8,8 +8,6 @@ from aav_msgs.msg import DronePosition, Mode, NewDronePosition, TargetPosition
 from rclpy.clock import Duration
 from rclpy.node import Node
 
-from aav_ws.build.aav_software.build.lib.aav_software.guidance import OacState
-
 from .mission import Mission
 from .payload_drop import run_payload_drop_sequence
 from .topic_converter_for_simulation import ArduPilotMode
@@ -22,7 +20,7 @@ from .util.timer import Timer
 # Testing commands:
 """
 # Launch Guidance2 System
-ros2 run aav_software Guidance2
+ros2 run aav_software guidance2
 
 #View output topic
 ros2 topic echo /AAV/send_new_position
@@ -70,6 +68,12 @@ class Guidance2(Node):
                 super().__init__(name)
                 self.guidance = guidance
 
+            def enter(self):
+                self.guidance.get_logger().info(f"Entering state: {self.get_name()}")
+
+            def exit(self):
+                self.guidance.get_logger().info(f"Exiting state: {self.get_name()}")
+
             def get_guidance(self) -> Guidance2:
                 return self.guidance
 
@@ -90,11 +94,11 @@ class Guidance2(Node):
 
             def descent_alignment_altitude(self):
                 return self.guidance.descent_alignment_altitude
-            
+
             def hardcoded_drop_altitude(self):
                 return self.guidance.hardcoded_drop_altitude
 
-            def send_new_mode(self,mode: ArduPilotMode):
+            def send_new_mode(self, mode: ArduPilotMode):
                 self.guidance.send_new_mode(mode)
 
             def run_payload_drop_sequence(
@@ -103,15 +107,22 @@ class Guidance2(Node):
                 pwm: float,
                 aux_port: int,
             ) -> None:
-                run_payload_drop_sequence(
-                    self.guidance, openandclose, pwm, aux_port
-                )
+                run_payload_drop_sequence(self.guidance, openandclose, pwm, aux_port)
 
             def last_target_label(self) -> str | None:
                 return self.guidance.last_target_label
 
             def new_position_pub(self):
                 return self.guidance.new_position_pub
+
+            def substructure_action_duration(self):
+                return self.guidance.substructure_action_duration
+
+            def seen_target(self):
+                return self.guidance.seen_target
+
+            def set_seen_target(self, cond):
+                self.guidance.seen_target = cond
 
         class WaitForStartup(Base):
             """
@@ -125,13 +136,21 @@ class Guidance2(Node):
                 self.wait_started = False
 
             def enter(self):
-                super().get_logger().info(
-                    f"Drone has entered wait for startup mode; "
-                    f"Waiting for drone to take off and for {self.DELAY.nanoseconds / 1e9}s startup delay to elapse"
+                super().enter()
+                self.get_logger().info(
+                    f"Waiting for takeoff above {Guidance2.TAKEOFF_THRESHOLD_ALTITUDE}m; "
+                    f"Startup delay: {self.DELAY.nanoseconds / 1e9}s"
+                )
+
+            def exit(self):
+                super().exit()
+                self.get_logger().info(
+                    "Startup delay complete; Target tracking enabled"
                 )
 
             def update(self):
-                gps_pos = super().current_gps_position()
+                super().update()
+                gps_pos = self.current_gps_position()
                 if not gps_pos:
                     return
 
@@ -140,39 +159,35 @@ class Guidance2(Node):
 
                 # Start the startup delay timer once drone takes off
                 if not self.wait_started and current_altitude > threshold_altitude:
-                    super().timer().reset()
-                    super().get_logger().info(
+                    self.timer().reset()
+                    self.get_logger().info(
                         f"Drone has taken off at altitude {gps_pos.altitude}m; "
                         f"starting {self.DELAY.nanoseconds / 1e9}s startup delay"
                     )
                     self.wait_started = True
+                    return
 
                 # check if we've waited longer than the startup delay
-                waited = super().timer().elapsed()
-                if waited > self.DELAY:
+                waited = self.timer().elapsed()
+                if self.wait_started and waited > self.DELAY:
                     # initiate seeking mode
-                    super().get_guidance().startup_delay_ended = True
-                    super().get_logger().info(
+                    self.get_guidance().startup_delay_ended = True
+                    self.get_logger().info(
                         "Startup delay has ended; GCP marker tracking is now active"
                     )
                     self.mark_finished(Guidance2.State.Seeking(self.guidance))
                     return
 
                 # debug waiting state
-                current_mission = super().current_mission
+                current_mission = self.current_mission()
                 goal_mission = Mission.GCP_MARKER_ALIGNING_CUASC.value
                 if current_mission == goal_mission:
-                    super().log_throttled(
+                    self.log_throttled(
                         "info",
                         "gcp_startup_delay_progress",
                         f"GCP Mission: Startup delay in progress ({waited:.1f}s / "
                         f"{self.DELAY.nanoseconds / 1e9}s)",
                     )
-
-            def exit(self):
-                super().get_logger().info(
-                    "Exiting wait for startup mode; Guidance2 system is now active"
-                )
 
         class Seeking(Base):
             """
@@ -184,46 +199,47 @@ class Guidance2(Node):
             def __init__(self, guidance: Guidance2):
                 super().__init__("seeking", guidance)
                 self.guidance: Guidance2 = guidance
-                self.seen_target: bool = False
 
             def enter(self):
-                super().get_logger().info(
-                    f"Drone has entered seeking mode; "
-                    f"Looking for new targets for the next {self.DURATION.nanoseconds / 1e9}s"
+                super().enter()
+                self.get_logger().info(
+                    f"Monitoring for targets while maintaining altitude; "
+                    f"Tracking duration: {self.DURATION.nanoseconds / 1e9}s"
+                )
+
+            def exit(self):
+                super().exit()
+                self.get_logger().info(
+                    "Seeking phase complete; Beginning aligned descent"
                 )
 
             def update(self):
+                super().update()
                 if (
-                    not self.seen_target
-                    or not super().current_gps_position
-                    or super().current_mission
-                    == Mission.GCP_MARKER_ALIGNING_CUASC.value
+                    not self.seen_target()
+                    or not self.current_gps_position()
+                    or self.current_mission() == Mission.GCP_MARKER_ALIGNING_CUASC.value
                 ):
                     # if we have seen no targets, or the gps is not connected, reset the timer
-                    if (
-                        super().current_mission
-                        == Mission.GCP_MARKER_ALIGNING_CUASC.value
-                        and not self.seen_target
-                    ):
-                        super().log_throttled(
+
+                    current_mission = self.current_mission()
+                    goal_mission = Mission.GCP_MARKER_ALIGNING_CUASC.value
+
+                    if current_mission == goal_mission and not self.seen_target():
+                        self.log_throttled(
                             "debug",
                             "gcp_waiting_for_first_target",
                             "GCP Mission: Waiting for first target detection",
                         )
-                    super().timer().reset()
+                    self.timer().reset()
 
-                elif super().timer().elapsed() > self.DURATION:
+                elif self.timer().elapsed() > self.DURATION:
                     # if the timer has expired (we saw our first target 60 seconds ago), start descending
                     next_state = Guidance2.State.AlignedDescending(self.guidance)
                     self.mark_finished(next_state)
-                    super().get_logger().info(
+                    self.get_logger().info(
                         f"Switching state to {next_state.get_name()}"
                     )
-
-            def exit(self):
-                super().get_logger().info(
-                    "Exiting seeking mode; Descending alignment system is now active"
-                )
 
         class AlignedDescending(Base):
             """
@@ -236,37 +252,42 @@ class Guidance2(Node):
                 super().__init__("aligned_descending", guidance)
 
             def enter(self):
-                super().get_logger().info(
-                    f"Drone has entered seeking mode; "
-                    f"Looking for new targets for the next {self.DURATION.nanoseconds / 1e9}s"
+                super().enter()
+                self.get_logger().info(
+                    f"Descending to alignment altitude of "
+                    f"{self.descent_alignment_altitude()}m; "
+                    f"Holding within 0.25m for {self.DURATION.nanoseconds / 1e9}s"
+                )
+
+            def exit(self):
+                super().exit()
+                self.get_logger().info(
+                    "Alignment hold complete; Beginning final descent"
                 )
 
             def update(self):
-                gps_pos = super().current_gps_position()
+                super().update()
+                gps_pos = self.current_gps_position()
                 if not gps_pos:
-                    super().timer().reset()
+                    self.timer().reset()
                     return
-                
+
                 # within .25m of drop altitude, check timer
-                altitude_dif = abs(gps_pos.altitude - super().descent_alignment_altitude())
+                altitude_dif = abs(gps_pos.altitude - self.descent_alignment_altitude())
                 if altitude_dif < 0.25:
                     # allow 8 seconds for final alignment
-                    if super().timer().elapsed() < self.DURATION:
+                    if self.timer().elapsed() < self.DURATION:
                         pass
                     # if the timer has expired, move on to final descent
                     else:
-                        self.state = OacState.FINAL_DESCENDING
-                        super().get_logger().info(
-                            f"Switching state to {self.state.name}"
+                        next_state = Guidance2.State.FinalDescending(self.guidance)
+                        self.mark_finished(next_state)
+                        self.get_logger().info(
+                            f"Switching state to {next_state.get_name()}"
                         )
                 # not within range of drop altitude, reset the timer
                 else:
-                    super().timer().reset()
-
-            def exit(self):
-                super().get_logger().info(
-                    "Exiting seeking mode; Descending alignment system is now active"
-                )
+                    self.timer().reset()
 
         class FinalDescending(Base):
             """
@@ -277,43 +298,55 @@ class Guidance2(Node):
                 super().__init__("final_descending", guidance)
 
             def enter(self):
-                super().get_logger().info(
-                    f"Drone has entered seeking mode; "
-                    f"Descending to drop altitude: {super().hardcoded_drop_altitude()}m"
+                super().enter()
+                self.get_logger().info(
+                    f"Descending to final drop altitude of "
+                    f"{self.hardcoded_drop_altitude()}m"
+                )
+
+            def exit(self):
+                super().exit()
+                self.get_logger().info(
+                    "Final descent complete; Proceeding with mission action"
                 )
 
             def update(self):
-                gps_pos = super().current_gps_position()
+                super().update()
+                gps_pos = self.current_gps_position()
                 if not gps_pos:
                     return
 
                 # if within .25m of drop alititude
-                if abs(gps_pos.altitude - super().hardcoded_drop_altitude()) < 0.25:
-                    
+                if abs(gps_pos.altitude - self.hardcoded_drop_altitude()) < 0.25:
                     # if at descent altitude, either start landing or run payload drop
-                    if self.current_mission == Mission.PACKAGE_DELIVERY_CUASC.value:
-                        super().send_new_mode(ArduPilotMode.LAND)
-                        self.state = OacState.LANDING
-                        self.get_logger().info(f"Switching state to {self.state.name}")
-                    elif self.current_mission == Mission.PAYLOAD_DROP_CUASC.value:
+                    if self.current_mission() == Mission.PACKAGE_DELIVERY_CUASC.value:
+                        next_state = Guidance2.State.Landing(self.guidance)
+                        self.mark_finished(next_state)
+                        self.get_logger().info(
+                            f"Switching state to {next_state.get_name()}"
+                        )
+                    elif self.current_mission() == Mission.PAYLOAD_DROP_CUASC.value:
                         self.get_logger().info("Dropping payload")
                         try:
-                            super().run_payload_drop_sequence(True, 2000, 8)
+                            self.run_payload_drop_sequence(True, 2000, 8)
                         except Exception as exc:
                             self.get_logger().error(
                                 f"Payload drop sequence failed: {exc}"
                             )
-                        super().timer().reset()
+                        self.timer().reset()
 
-                        self.state = OacState.DROPPING_PAYLOAD
-                        self.get_logger().info(f"Switching state to {self.state.name}")
-                    elif self.current_mission == Mission.PAYLOAD_DELIVERY_SUAS.value:
-                        super().timer().reset()
-                        if self.last_target_label == "manikin":
+                        next_state = Guidance2.State.DroppingPayload(self.guidance)
+                        self.mark_finished(next_state)
+                        self.get_logger().info(
+                            f"Switching state to {next_state.get_name()}"
+                        )
+                    elif self.current_mission() == Mission.PAYLOAD_DELIVERY_SUAS.value:
+                        self.timer().reset()
+                        if self.last_target_label() == "manikin":
                             self.get_logger().info("Dropping water bottle")
 
                             try:
-                                super().run_payload_drop_sequence(True, 2000, 7)
+                                self.run_payload_drop_sequence(True, 2000, 7)
                             except Exception as exc:
                                 self.get_logger().error(
                                     f"Payload drop sequence failed: {exc}"
@@ -321,29 +354,27 @@ class Guidance2(Node):
                         else:
                             self.get_logger().info("Dropping beacon")
                             try:
-                                super().run_payload_drop_sequence(True, 2000, 6)
+                                self.run_payload_drop_sequence(True, 2000, 6)
                             except Exception as exc:
                                 self.get_logger().error(
                                     f"Payload drop sequence failed: {exc}"
                                 )
 
-                        self.state = OacState.DROPPING_PAYLOAD
-                        self.get_logger().info(f"Switching state to {self.state.name}")
+                        next_state = Guidance2.State.DroppingPayload(self.guidance)
+                        self.mark_finished(next_state)
+                        self.get_logger().info(
+                            f"Switching state to {next_state.get_name()}"
+                        )
 
                 else:
                     new_position = NewDronePosition()
 
-                    gps_pos = super().current_gps_position()
+                    gps_pos = self.current_gps_position()
                     if gps_pos:
                         new_position.longitude = gps_pos.longitude
                         new_position.latitude = gps_pos.latitude
-                        new_position.altitude = super().hardcoded_drop_altitude()
+                        new_position.altitude = self.hardcoded_drop_altitude()
                         self.new_position_pub().publish(new_position)
-
-            def exit(self):
-                super().get_logger().info(
-                    "Exiting seeking mode; Descending alignment system is now active"
-                )
 
         class DroppingPayload(Base):
             """
@@ -354,90 +385,74 @@ class Guidance2(Node):
                 super().__init__("dropping_payload", guidance)
 
             def enter(self):
-                super().get_logger().info(
-                    f"Drone has entered seeking mode; "
-                    f"Looking for new targets for the next {self.DURATION.nanoseconds / 1e9}s"
+                super().enter()
+                self.get_logger().info(
+                    f"Payload release commanded; "
+                    f"Waiting {self.substructure_action_duration().nanoseconds / 1e9}s "
+                    f"before continuing mission"
                 )
 
             def update(self):
-                if (
-                    not self.seen_target
-                    or not super().current_gps_position
-                    or super().current_mission
-                    == Mission.GCP_MARKER_ALIGNING_CUASC.value
-                ):
-                    # if we have seen no targets, or the gps is not connected, reset the timer
-                    if (
-                        super().current_mission
-                        == Mission.GCP_MARKER_ALIGNING_CUASC.value
-                        and not self.seen_target
-                    ):
-                        super().log_throttled(
-                            "debug",
-                            "gcp_waiting_for_first_target",
-                            "GCP Mission: Waiting for first target detection",
+                super().update()
+                if self.timer().elapsed() > self.substructure_action_duration():
+                    if self.current_mission() == Mission.PAYLOAD_DELIVERY_SUAS.value:
+                        self.set_seen_target(False)
+                        next_state = Guidance2.State.Seeking(self.guidance)
+                        self.mark_finished(next_state)
+                        self.get_logger().info(
+                            f"Switching state to {next_state.get_name()}"
                         )
-                    super().timer().reset()
-
-                elif super().timer().elapsed() > self.DURATION:
-                    # if the timer has expired (we saw our first target 60 seconds ago), start descending
-                    next_state = super().State.AlignedDescending(self.guidance)
-                    self.mark_finished(next_state)
-                    super().get_logger().info(
-                        f"Switching state to {next_state.get_name()}"
-                    )
-
-            def exit(self):
-                super().get_logger().info(
-                    "Exiting seeking mode; Descending alignment system is now active"
-                )
+                    else:
+                        next_state = Guidance2.State.Returning(self.guidance)
+                        self.mark_finished(next_state)
+                        self.get_logger().info(
+                            f"Switching state to {next_state.get_name()}"
+                        )
 
         class Landing(Base):
             """
             In landing mode; waiting to reach ground
             """
 
+            THRESHOLD_ALTITUDE: float = 0.5
+
             def __init__(self, guidance: Guidance2):
                 super().__init__("landing", guidance)
 
             def enter(self):
-                super().get_logger().info(
-                    f"Drone has entered seeking mode; "
-                    f"Looking for new targets for the next {self.DURATION.nanoseconds / 1e9}s"
+                super().enter()
+                self.get_logger().info(
+                    f"Landing initiated; Waiting for altitude below "
+                    f"{self.THRESHOLD_ALTITUDE}m"
+                )
+                self.send_new_mode(ArduPilotMode.LAND)
+
+            def exit(self):
+                super().exit()
+                self.get_logger().info(
+                    "Landing altitude threshold reached; Package release commanded"
                 )
 
             def update(self):
-                if (
-                    not self.seen_target
-                    or not super().current_gps_position
-                    or super().current_mission
-                    == Mission.GCP_MARKER_ALIGNING_CUASC.value
-                ):
-                    # if we have seen no targets, or the gps is not connected, reset the timer
-                    if (
-                        super().current_mission
-                        == Mission.GCP_MARKER_ALIGNING_CUASC.value
-                        and not self.seen_target
-                    ):
-                        super().log_throttled(
-                            "debug",
-                            "gcp_waiting_for_first_target",
-                            "GCP Mission: Waiting for first target detection",
-                        )
-                    super().timer().reset()
+                super().update()
+                gps_pos = self.current_gps_position()
+                if not gps_pos:
+                    return
 
-                elif super().timer().elapsed() > self.DURATION:
-                    # if the timer has expired (we saw our first target 60 seconds ago), start descending
-                    next_state = super().State.AlignedDescending(self.guidance)
+                # if within .25m of drop alititude
+                if gps_pos.altitude < self.THRESHOLD_ALTITUDE:
+                    self.get_logger().info("Dropping CUASC package")
+                    try:
+                        self.run_payload_drop_sequence(False, 1500, 8)
+                    except Exception as exc:
+                        self.get_logger().error(f"Payload drop sequence failed: {exc}")
+
+                    self.timer().reset()
+                    next_state = Guidance2.State.DroppingPackage(self.guidance)
                     self.mark_finished(next_state)
-                    super().get_logger().info(
+                    self.get_logger().info(
                         f"Switching state to {next_state.get_name()}"
                     )
-
-            def exit(self):
-                super().get_logger().info(
-                    "Exiting seeking mode; Descending alignment system is now active"
-                )
 
         class DroppingPackage(Base):
             """
@@ -448,43 +463,27 @@ class Guidance2(Node):
                 super().__init__("dropping_package", guidance)
 
             def enter(self):
-                super().get_logger().info(
-                    f"Drone has entered seeking mode; "
-                    f"Looking for new targets for the next {self.DURATION.nanoseconds / 1e9}s"
+                super().enter()
+                self.get_logger().info(
+                    f"Package release commanded; "
+                    f"Waiting {self.substructure_action_duration().nanoseconds / 1e9}s "
+                    f"before takeoff"
+                )
+
+            def exit(self):
+                super().exit()
+                self.get_logger().info(
+                    "Package release wait complete; Takeoff requested"
                 )
 
             def update(self):
-                if (
-                    not self.seen_target
-                    or not super().current_gps_position
-                    or super().current_mission
-                    == Mission.GCP_MARKER_ALIGNING_CUASC.value
-                ):
-                    # if we have seen no targets, or the gps is not connected, reset the timer
-                    if (
-                        super().current_mission
-                        == Mission.GCP_MARKER_ALIGNING_CUASC.value
-                        and not self.seen_target
-                    ):
-                        super().log_throttled(
-                            "debug",
-                            "gcp_waiting_for_first_target",
-                            "GCP Mission: Waiting for first target detection",
-                        )
-                    super().timer().reset()
-
-                elif super().timer().elapsed() > self.DURATION:
-                    # if the timer has expired (we saw our first target 60 seconds ago), start descending
-                    next_state = super().State.AlignedDescending(self.guidance)
+                super().update()
+                if self.timer().elapsed() > self.substructure_action_duration():
+                    next_state = Guidance2.State.TakingOff(self.guidance)
                     self.mark_finished(next_state)
-                    super().get_logger().info(
+                    self.get_logger().info(
                         f"Switching state to {next_state.get_name()}"
                     )
-
-            def exit(self):
-                super().get_logger().info(
-                    "Exiting seeking mode; Descending alignment system is now active"
-                )
 
         class TakingOff(Base):
             """
@@ -495,43 +494,33 @@ class Guidance2(Node):
                 super().__init__("taking_off", guidance)
 
             def enter(self):
-                super().get_logger().info(
-                    f"Drone has entered seeking mode; "
-                    f"Looking for new targets for the next {self.DURATION.nanoseconds / 1e9}s"
+                super().enter()
+                self.get_logger().info(
+                    f"Takeoff initiated; Waiting to exceed "
+                    f"{Guidance2.TAKEOFF_THRESHOLD_ALTITUDE}m altitude"
+                )
+
+                self.send_new_mode(ArduPilotMode.TAKEOFF)
+
+            def exit(self):
+                super().exit()
+                self.get_logger().info(
+                    "Takeoff altitude threshold reached; AUTO mode requested"
                 )
 
             def update(self):
-                if (
-                    not self.seen_target
-                    or not super().current_gps_position
-                    or super().current_mission
-                    == Mission.GCP_MARKER_ALIGNING_CUASC.value
-                ):
-                    # if we have seen no targets, or the gps is not connected, reset the timer
-                    if (
-                        super().current_mission
-                        == Mission.GCP_MARKER_ALIGNING_CUASC.value
-                        and not self.seen_target
-                    ):
-                        super().log_throttled(
-                            "debug",
-                            "gcp_waiting_for_first_target",
-                            "GCP Mission: Waiting for first target detection",
-                        )
-                    super().timer().reset()
+                super().update()
+                gps_pos = self.current_gps_position()
+                if not gps_pos:
+                    return
 
-                elif super().timer().elapsed() > self.DURATION:
-                    # if the timer has expired (we saw our first target 60 seconds ago), start descending
-                    next_state = super().State.AlignedDescending(self.guidance)
+                # if within .25m of drop alititude
+                if gps_pos.altitude > Guidance2.TAKEOFF_THRESHOLD_ALTITUDE:
+                    next_state = Guidance2.State.Returning(self.guidance)
                     self.mark_finished(next_state)
-                    super().get_logger().info(
+                    self.get_logger().info(
                         f"Switching state to {next_state.get_name()}"
                     )
-
-            def exit(self):
-                super().get_logger().info(
-                    "Exiting seeking mode; Descending alignment system is now active"
-                )
 
         class Returning(Base):
             """
@@ -542,47 +531,17 @@ class Guidance2(Node):
                 super().__init__("returning", guidance)
 
             def enter(self):
-                super().get_logger().info(
-                    f"Drone has entered seeking mode; "
-                    f"Looking for new targets for the next {self.DURATION.nanoseconds / 1e9}s"
+                super().enter()
+                self.get_logger().info(
+                    "Guidance sequence complete; Returning control to AUTO mode"
                 )
+
+                self.send_new_mode(ArduPilotMode.AUTO)
 
             def update(self):
-                if (
-                    not self.seen_target
-                    or not super().current_gps_position
-                    or super().current_mission
-                    == Mission.GCP_MARKER_ALIGNING_CUASC.value
-                ):
-                    # if we have seen no targets, or the gps is not connected, reset the timer
-                    if (
-                        super().current_mission
-                        == Mission.GCP_MARKER_ALIGNING_CUASC.value
-                        and not self.seen_target
-                    ):
-                        super().log_throttled(
-                            "debug",
-                            "gcp_waiting_for_first_target",
-                            "GCP Mission: Waiting for first target detection",
-                        )
-                    super().timer().reset()
-
-                elif super().timer().elapsed() > self.DURATION:
-                    # if the timer has expired (we saw our first target 60 seconds ago), start descending
-                    next_state = super().State.AlignedDescending(self.guidance)
-                    self.mark_finished(next_state)
-                    super().get_logger().info(
-                        f"Switching state to {next_state.get_name()}"
-                    )
-
-            def exit(self):
-                super().get_logger().info(
-                    "Exiting seeking mode; Descending alignment system is now active"
-                )
+                super().update()
 
     STATUS_LOG_THROTTLE = Duration(seconds=3)
-
-    LANDING_THRESHOLD_ALTITUDE: float = 0.5
     TAKEOFF_THRESHOLD_ALTITUDE: float = 3.0
 
     def __init__(self):
@@ -638,7 +597,7 @@ class Guidance2(Node):
         )
 
         ###
-
+        self.seen_target = False
         self.timer: Timer = Timer(self.get_clock())
 
         self.machine: StateMachine = StateMachine()
@@ -705,7 +664,7 @@ class Guidance2(Node):
         if not self.seen_target:
             self.time_marker = self.get_clock().now()
 
-        if self.state == OacState.SEEKING:
+        if isinstance(self.machine.current_state, self.State.Seeking):
             if not self.current_gps_position:
                 self.get_logger().warning(
                     "Current GPS position unavailable; cannot publish target position."
@@ -742,7 +701,8 @@ class Guidance2(Node):
                 )
 
             self.new_position_pub.publish(new_position)
-        elif self.state == OacState.ALIGNED_DESCENDING:
+
+        if isinstance(self.machine.current_state, self.State.AlignedDescending):
             new_position = NewDronePosition()
             new_position.latitude = target_position.latitude
             new_position.longitude = target_position.longitude
@@ -764,57 +724,6 @@ class Guidance2(Node):
 
     def update(self):
         self.machine.update()
-
-            case OacState.DROPPING_PAYLOAD:
-                if (
-                    self.get_clock().now() - self.time_marker
-                    > self.substructure_action_duration
-                ):
-                    if self.current_mission == Mission.PAYLOAD_DELIVERY_SUAS.value:
-                        self.seen_target = False
-                        self.state = OacState.SEEKING
-                        self.get_logger().info(f"Switching state to {self.state.name}")
-                    else:
-                        self.send_new_mode(ArduPilotMode.AUTO)
-                        self.state = OacState.RETURNING
-                        self.get_logger().info(f"Switching state to {self.state.name}")
-
-            case OacState.LANDING:
-                if self.current_gps_position and float(
-                    self.current_gps_position.altitude
-                ) < float(Guidance2.LANDING_THRESHOLD_ALTITUDE):
-                    self.get_logger().info("Dropping CUASC package")
-                    try:
-                        run_payload_drop_sequence(self, False, 1500, 8)
-                    except Exception as exc:
-                        self.get_logger().error(f"Payload drop sequence failed: {exc}")
-
-                    self.time_marker = self.get_clock().now()
-                    self.state = OacState.DROPPING_PACKAGE
-                    self.get_logger().info(f"Switching state to {self.state.name}")
-
-            case OacState.DROPPING_PACKAGE:
-                if (
-                    self.get_clock().now() - self.time_marker
-                    > self.substructure_action_duration
-                ):
-                    self.send_new_mode(ArduPilotMode.TAKEOFF)
-
-                    self.state = OacState.TAKING_OFF
-                    self.get_logger().info(f"Switching state to {self.state.name}")
-
-            case OacState.TAKING_OFF:
-                if self.current_gps_position and float(
-                    self.current_gps_position.altitude
-                ) > float(Guidance2.TAKEOFF_THRESHOLD_ALTITUDE):
-                    self.send_new_mode(ArduPilotMode.AUTO)
-
-                    self.state = OacState.RETURNING
-                    self.get_logger().info(f"Switching state to {self.state.name}")
-
-            case OacState.RETURNING:
-                # Nothing to do for now
-                pass
 
 
 def main(args=None):
