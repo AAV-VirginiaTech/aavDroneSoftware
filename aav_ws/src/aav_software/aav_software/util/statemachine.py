@@ -52,3 +52,6 @@ class StateMachine:
         self.current_state = self.current_state.get_next_state()
         if self.current_state is not None:
             self.current_state.enter()
+
+    def get_current_state(self) -> StateMachine.State | None:
+        return self.current_state
