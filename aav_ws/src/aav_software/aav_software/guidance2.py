@@ -601,12 +601,12 @@ class Guidance2(Node):
         self.timer: Timer = Timer(self.get_clock())
 
         self.machine: StateMachine = StateMachine()
-        self.machine.start(self.State.WaitForStartup(self))
 
         self.startup_delay_ended = False
         self._last_log_time_ns: dict[str, int] = {}
 
         self.get_logger().info("Guidance2 System has been launched")
+        self.machine.start(self.State.WaitForStartup(self))
 
     def send_new_mode(self, mode: ArduPilotMode):
         new_mode = Mode()
