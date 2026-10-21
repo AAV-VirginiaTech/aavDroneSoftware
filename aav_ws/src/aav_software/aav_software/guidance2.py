@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 from __future__ import annotations
 
 from typing import cast
@@ -566,6 +567,7 @@ class Guidance2(Node):
         self.new_mode_pub = self.create_publisher(Mode, "/AAV/set_mode", 10)
 
         self.update_timer = self.create_timer(0.5, self.update)
+        self.debug_timer = self.create_timer(5, self.debug_timer_callback)
 
         self.current_mode = ArduPilotMode.AUTO
         self.guided_mode_request_in_flight = False
@@ -600,7 +602,7 @@ class Guidance2(Node):
         self.seen_target = False
         self.timer: Timer = Timer(self.get_clock())
 
-        self.machine: StateMachine = StateMachine()
+        self.machine: StateMachine = StateMachine(self.get_clock())
 
         self.startup_delay_ended = False
         self._last_log_time_ns: dict[str, int] = {}
@@ -721,6 +723,13 @@ class Guidance2(Node):
                 f"alt={gps_position.altitude}m, yaw={gps_position.yaw} rad"
             )
         self.current_gps_position = gps_position
+
+    def debug_timer_callback(self):
+        state = self.machine.get_current_state()
+        name = state.get_name() if state else "nothing"
+        self.get_logger().info(
+            f"Working on {name}... for {self.machine.get_state_time().nanoseconds / 1e9}s"
+        )
 
     def update(self):
         self.machine.update()

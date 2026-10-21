@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from rclpy.clock import Clock
+
+from .timer import Timer
+
 
 class StateMachine:
     class State:
@@ -30,11 +34,14 @@ class StateMachine:
         def get_next_state(self) -> StateMachine.State | None:
             return self.next_state
 
-    def __init__(self):
+    def __init__(self, clock: Clock):
         self.current_state: StateMachine.State | None = None
+        self.state_timer = Timer(clock)
 
     def start(self, initial_state: StateMachine.State):
         self.current_state = initial_state
+
+        self.state_timer.reset()
         self.current_state.enter()
 
     def update(self):
@@ -51,7 +58,11 @@ class StateMachine:
         # set current state to next state
         self.current_state = self.current_state.get_next_state()
         if self.current_state is not None:
+            self.state_timer.reset()
             self.current_state.enter()
 
     def get_current_state(self) -> StateMachine.State | None:
         return self.current_state
+
+    def get_state_time(self):
+        return self.state_timer.elapsed()
