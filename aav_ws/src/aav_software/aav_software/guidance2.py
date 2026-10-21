@@ -90,6 +90,28 @@ class Guidance2(Node):
 
             def descent_alignment_altitude(self):
                 return self.guidance.descent_alignment_altitude
+            
+            def hardcoded_drop_altitude(self):
+                return self.guidance.hardcoded_drop_altitude
+
+            def send_new_mode(self,mode: ArduPilotMode):
+                self.guidance.send_new_mode(mode)
+
+            def run_payload_drop_sequence(
+                self,
+                openandclose: bool,
+                pwm: float,
+                aux_port: int,
+            ) -> None:
+                run_payload_drop_sequence(
+                    self.guidance, openandclose, pwm, aux_port
+                )
+
+            def last_target_label(self) -> str | None:
+                return self.guidance.last_target_label
+
+            def new_position_pub(self):
+                return self.guidance.new_position_pub
 
         class WaitForStartup(Base):
             """
@@ -257,36 +279,66 @@ class Guidance2(Node):
             def enter(self):
                 super().get_logger().info(
                     f"Drone has entered seeking mode; "
-                    f"Looking for new targets for the next {self.DURATION.nanoseconds / 1e9}s"
+                    f"Descending to drop altitude: {super().hardcoded_drop_altitude()}m"
                 )
 
             def update(self):
-                if (
-                    not self.seen_target
-                    or not super().current_gps_position
-                    or super().current_mission
-                    == Mission.GCP_MARKER_ALIGNING_CUASC.value
-                ):
-                    # if we have seen no targets, or the gps is not connected, reset the timer
-                    if (
-                        super().current_mission
-                        == Mission.GCP_MARKER_ALIGNING_CUASC.value
-                        and not self.seen_target
-                    ):
-                        super().log_throttled(
-                            "debug",
-                            "gcp_waiting_for_first_target",
-                            "GCP Mission: Waiting for first target detection",
-                        )
-                    super().timer().reset()
+                gps_pos = super().current_gps_position()
+                if not gps_pos:
+                    return
 
-                elif super().timer().elapsed() > self.DURATION:
-                    # if the timer has expired (we saw our first target 60 seconds ago), start descending
-                    next_state = super().State.AlignedDescending(self.guidance)
-                    self.mark_finished(next_state)
-                    super().get_logger().info(
-                        f"Switching state to {next_state.get_name()}"
-                    )
+                # if within .25m of drop alititude
+                if abs(gps_pos.altitude - super().hardcoded_drop_altitude()) < 0.25:
+                    
+                    # if at descent altitude, either start landing or run payload drop
+                    if self.current_mission == Mission.PACKAGE_DELIVERY_CUASC.value:
+                        super().send_new_mode(ArduPilotMode.LAND)
+                        self.state = OacState.LANDING
+                        self.get_logger().info(f"Switching state to {self.state.name}")
+                    elif self.current_mission == Mission.PAYLOAD_DROP_CUASC.value:
+                        self.get_logger().info("Dropping payload")
+                        try:
+                            super().run_payload_drop_sequence(True, 2000, 8)
+                        except Exception as exc:
+                            self.get_logger().error(
+                                f"Payload drop sequence failed: {exc}"
+                            )
+                        super().timer().reset()
+
+                        self.state = OacState.DROPPING_PAYLOAD
+                        self.get_logger().info(f"Switching state to {self.state.name}")
+                    elif self.current_mission == Mission.PAYLOAD_DELIVERY_SUAS.value:
+                        super().timer().reset()
+                        if self.last_target_label == "manikin":
+                            self.get_logger().info("Dropping water bottle")
+
+                            try:
+                                super().run_payload_drop_sequence(True, 2000, 7)
+                            except Exception as exc:
+                                self.get_logger().error(
+                                    f"Payload drop sequence failed: {exc}"
+                                )
+                        else:
+                            self.get_logger().info("Dropping beacon")
+                            try:
+                                super().run_payload_drop_sequence(True, 2000, 6)
+                            except Exception as exc:
+                                self.get_logger().error(
+                                    f"Payload drop sequence failed: {exc}"
+                                )
+
+                        self.state = OacState.DROPPING_PAYLOAD
+                        self.get_logger().info(f"Switching state to {self.state.name}")
+
+                else:
+                    new_position = NewDronePosition()
+
+                    gps_pos = super().current_gps_position()
+                    if gps_pos:
+                        new_position.longitude = gps_pos.longitude
+                        new_position.latitude = gps_pos.latitude
+                        new_position.altitude = super().hardcoded_drop_altitude()
+                        self.new_position_pub().publish(new_position)
 
             def exit(self):
                 super().get_logger().info(
@@ -711,63 +763,7 @@ class Guidance2(Node):
         self.current_gps_position = gps_position
 
     def update(self):
-        self.machine.update()                
-
-            case OacState.FINAL_DESCENDING:
-                if self.current_gps_position and (
-                    abs(
-                        float(self.current_gps_position.altitude)
-                        - float(self.hardcoded_drop_altitude)
-                    )
-                    < 0.25
-                ):
-                    # if at descent altitude, either start landing or run payload drop
-                    if self.current_mission == Mission.PACKAGE_DELIVERY_CUASC.value:
-                        self.send_new_mode(ArduPilotMode.LAND)
-                        self.state = OacState.LANDING
-                        self.get_logger().info(f"Switching state to {self.state.name}")
-                    elif self.current_mission == Mission.PAYLOAD_DROP_CUASC.value:
-                        self.get_logger().info("Dropping payload")
-                        try:
-                            run_payload_drop_sequence(self, True, 2000, 8)
-                        except Exception as exc:
-                            self.get_logger().error(
-                                f"Payload drop sequence failed: {exc}"
-                            )
-                        self.time_marker = self.get_clock().now()
-
-                        self.state = OacState.DROPPING_PAYLOAD
-                        self.get_logger().info(f"Switching state to {self.state.name}")
-                    elif self.current_mission == Mission.PAYLOAD_DELIVERY_SUAS.value:
-                        self.time_marker = self.get_clock().now()
-                        if self.last_target_label == "manikin":
-                            self.get_logger().info("Dropping water bottle")
-
-                            try:
-                                run_payload_drop_sequence(self, True, 2000, 7)
-                            except Exception as exc:
-                                self.get_logger().error(
-                                    f"Payload drop sequence failed: {exc}"
-                                )
-                        else:
-                            self.get_logger().info("Dropping beacon")
-                            try:
-                                run_payload_drop_sequence(self, True, 2000, 6)
-                            except Exception as exc:
-                                self.get_logger().error(
-                                    f"Payload drop sequence failed: {exc}"
-                                )
-
-                        self.state = OacState.DROPPING_PAYLOAD
-                        self.get_logger().info(f"Switching state to {self.state.name}")
-
-                else:
-                    new_position = NewDronePosition()
-                    if self.current_gps_position:
-                        new_position.longitude = self.current_gps_position.longitude
-                        new_position.latitude = self.current_gps_position.latitude
-                        new_position.altitude = self.hardcoded_drop_altitude
-                        self.new_position_pub.publish(new_position)
+        self.machine.update()
 
             case OacState.DROPPING_PAYLOAD:
                 if (
