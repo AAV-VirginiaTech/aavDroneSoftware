@@ -28,7 +28,7 @@ setup(
             "topic_converter_for_drone = aav_software.topic_converter_for_drone:main",
             "topic_converter_for_simulation = aav_software.topic_converter_for_simulation:main",
             "guidance = aav_software.guidance:main",
-            "guidance2 = aav_software.guidance2:main",
+            "guidance = aav_software.guidance:main",
             "payload_drop = aav_software.payload_drop:main",
         ],
     },
