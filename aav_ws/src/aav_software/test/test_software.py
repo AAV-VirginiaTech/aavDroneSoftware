@@ -14,10 +14,10 @@ from aav_software.manavs_magic_code import (
     calc_targ_loc,
 )
 from aav_software.mission import Mission
-from aav_software.object_alignment_controller import (
+from aav_software.guidance import (
     ArduPilotMode,
     OacState,
-    ObjectAlignmentController,
+    Guidance,
 )
 
 
@@ -194,7 +194,7 @@ def test_fixed_camera_resolution_drives_target_normalization():
 
 
 def test_target_position_callback_requests_guided_mode_once_when_not_guided():
-    controller = ObjectAlignmentController.__new__(ObjectAlignmentController)
+    controller = Guidance.__new__(Guidance)
     controller_any = cast(Any, controller)
     controller_any.state = OacState.SEEKING
     controller_any.current_mode = ArduPilotMode.AUTO
@@ -206,7 +206,7 @@ def test_target_position_callback_requests_guided_mode_once_when_not_guided():
     # Ensure startup delay has already elapsed for tests
     controller_any.startup_time = FakeTime(0)
     controller_any.get_clock = lambda: FakeClock(
-        ObjectAlignmentController.STARTUP_DELAY.nanoseconds + 1
+        Guidance.STARTUP_DELAY.nanoseconds + 1
     )
 
     target = TargetPosition()
@@ -222,7 +222,7 @@ def test_target_position_callback_requests_guided_mode_once_when_not_guided():
 
 
 def test_target_position_callback_publishes_when_guided_and_bullseye():
-    controller = ObjectAlignmentController.__new__(ObjectAlignmentController)
+    controller = Guidance.__new__(Guidance)
     controller_any = cast(Any, controller)
     controller_any.state = OacState.SEEKING
     controller_any.current_mission = Mission.PACKAGE_DELIVERY_CUASC.value
@@ -234,7 +234,7 @@ def test_target_position_callback_publishes_when_guided_and_bullseye():
     # Ensure startup delay has already elapsed for tests
     controller_any.startup_time = FakeTime(0)
     controller_any.get_clock = lambda: FakeClock(
-        ObjectAlignmentController.STARTUP_DELAY.nanoseconds + 1
+        Guidance.STARTUP_DELAY.nanoseconds + 1
     )
     publisher = CapturingPublisher()
     controller_any.new_position_pub = publisher
@@ -260,7 +260,7 @@ def test_target_position_callback_publishes_when_guided_and_bullseye():
 
 
 def test_update_state_machine_seeking_to_aligned_descending():
-    controller = ObjectAlignmentController.__new__(ObjectAlignmentController)
+    controller = Guidance.__new__(Guidance)
     controller_any = cast(Any, controller)
     controller_any.state = OacState.SEEKING
     controller_any.current_mission = Mission.PACKAGE_DELIVERY_CUASC.value
@@ -270,8 +270,8 @@ def test_update_state_machine_seeking_to_aligned_descending():
     # Set startup time and advance clock past both startup and seek durations
     controller_any.startup_time = FakeTime(0)
     controller_any.get_clock = lambda: FakeClock(
-        ObjectAlignmentController.STARTUP_DELAY.nanoseconds
-        + ObjectAlignmentController.SEEK_ALIGNMENT_DURATION.nanoseconds
+        Guidance.STARTUP_DELAY.nanoseconds
+        + Guidance.SEEK_ALIGNMENT_DURATION.nanoseconds
         + 1
     )
     controller_any.get_logger = lambda: FakeLogger()
@@ -284,7 +284,7 @@ def test_update_state_machine_seeking_to_aligned_descending():
 
 
 def test_update_state_machine_aligned_descending_to_final_descending():
-    controller = ObjectAlignmentController.__new__(ObjectAlignmentController)
+    controller = Guidance.__new__(Guidance)
     controller_any = cast(Any, controller)
     controller_any.state = OacState.FINAL_DESCENDING
     controller_any.current_mission = Mission.PACKAGE_DELIVERY_CUASC.value
@@ -295,7 +295,7 @@ def test_update_state_machine_aligned_descending_to_final_descending():
     # Ensure startup delay has already elapsed for tests
     controller_any.startup_time = FakeTime(0)
     controller_any.get_clock = lambda: FakeClock(
-        ObjectAlignmentController.STARTUP_DELAY.nanoseconds + 1
+        Guidance.STARTUP_DELAY.nanoseconds + 1
     )
     publisher = CapturingPublisher()
     controller_any.new_position_pub = publisher
