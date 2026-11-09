@@ -63,7 +63,8 @@ def generate_launch_description():
                     ]
                 ),
             ]
-        )
+        ),
+        launch_arguments={"world_name": "map"}.items(),
     )
 
     # Gazebo.
